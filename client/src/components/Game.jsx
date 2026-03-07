@@ -5,6 +5,7 @@ import Table from './Table.jsx';
 import MoneyDisplay from './MoneyDisplay.jsx';
 import EmoteBar from './EmoteBar.jsx';
 import EmoteOverlay from './EmoteOverlay.jsx';
+import { useSound } from '../hooks/useSound.js';
 
 const CONFETTI_COLORS = ['#f0c040', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22'];
 
@@ -48,6 +49,8 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   const [animatePlay, setAnimatePlay] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const prevTableRef = useRef(null);
+  const { playSound, muted, toggleMute } = useSound();
+  const prevTurnRef = useRef(null);
 
   const opponents = playerOrder.filter(id => id !== myId);
   const isMyTurn = gameState.turn === myId;
@@ -68,13 +71,22 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
         (currentTable[0] && prevTable[0] && currentTable[0].id !== prevTable[0].id);
       if (isNew) {
         setAnimatePlay(true);
+        playSound('play');
         const timer = setTimeout(() => setAnimatePlay(false), 500);
         prevTableRef.current = currentTable;
         return () => clearTimeout(timer);
       }
     }
     prevTableRef.current = currentTable;
-  }, [gameState.table]);
+  }, [gameState.table, playSound]);
+
+  useEffect(() => {
+    const currentTurn = gameState.turn;
+    if (currentTurn === myId && prevTurnRef.current !== myId && prevTurnRef.current !== null) {
+      playSound('turn');
+    }
+    prevTurnRef.current = currentTurn;
+  }, [gameState.turn, myId, playSound]);
 
   useEffect(() => {
     if (!socket) return;
@@ -98,6 +110,9 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       setSelectedIds(new Set());
       if (data.winner === myId) {
         setShowConfetti(true);
+        playSound('win');
+      } else {
+        playSound('lose');
       }
     };
 
@@ -112,6 +127,9 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       });
       if (data.winner === myId) {
         setShowConfetti(true);
+        playSound('win');
+      } else {
+        playSound('lose');
       }
     };
 
@@ -123,6 +141,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     const onEmote = ({ emoteId, from }) => {
       const id = Date.now() + Math.random();
       setEmotes((prev) => [...prev, { id, emoteId, from: 'opponent' }]);
+      playSound('emote');
       setTimeout(() => {
         setEmotes((prev) => prev.filter((e) => e.id !== id));
       }, 1500);
@@ -150,16 +169,17 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       socket.off('player-disconnected', onPlayerDisconnected);
       socket.off('waiting-for-opponent', onWaiting);
     };
-  }, [socket, myId, onGameState, onGameStart]);
+  }, [socket, myId, onGameState, onGameStart, playSound]);
 
   const toggleCard = useCallback((cardId) => {
+    playSound('click');
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(cardId)) next.delete(cardId);
       else next.add(cardId);
       return next;
     });
-  }, []);
+  }, [playSound]);
 
   const handlePlay = () => {
     if (selectedIds.size === 0) return;
@@ -167,6 +187,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   };
 
   const handlePass = () => {
+    playSound('pass');
     socket.emit('pass');
   };
 
@@ -191,6 +212,9 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
 
   return (
     <div className="game">
+      <button className="mute-btn" onClick={toggleMute}>
+        {muted ? '\u{1F507}' : '\u{1F50A}'}
+      </button>
       <div className="opponents-area">
         {opponents.map((oppId) => (
           <div key={oppId} className={`opponent-slot ${gameState.turn === oppId ? 'active-turn' : ''} ${passedSet.has(oppId) ? 'passed' : ''}`}>

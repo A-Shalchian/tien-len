@@ -1,9 +1,8 @@
 import { io } from 'socket.io-client';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || '';
 
-// Module-level singleton — survives React StrictMode double-mount
-const socket = io(SERVER_URL, {
+const socket = io(SERVER_URL || window.location.origin, {
   autoConnect: true,
   reconnection: true,
   reconnectionAttempts: 10,

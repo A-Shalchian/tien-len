@@ -598,3 +598,63 @@ body {
   padding: 4px 10px;
   border-radius: 10px;
 }
+
+/* Deal Animation */
+.card.dealing {
+  animation: dealIn 0.4s ease-out both;
+}
+
+@keyframes dealIn {
+  0% {
+    opacity: 0;
+    transform: translate(0, -200px) scale(0.5) rotate(-15deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+}
+
+/* Play Animation (cards sliding to table) */
+.card.playing {
+  animation: playCard 0.35s ease-in-out both;
+}
+
+@keyframes playCard {
+  0% {
+    opacity: 0;
+    transform: translateY(80px) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Win Confetti */
+.confetti-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99;
+  overflow: hidden;
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  top: -10px;
+  animation: confettiFall 1.8s ease-in forwards;
+}
+
+@keyframes confettiFall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100vh) rotate(720deg);
+  }
+}

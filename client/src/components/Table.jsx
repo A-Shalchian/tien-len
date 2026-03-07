@@ -1,6 +1,6 @@
 import Card from './Card.jsx';
 
-export default function Table({ cards }) {
+export default function Table({ cards, animatePlay }) {
   if (!cards || cards.length === 0) {
     return (
       <div className="table-cards">
@@ -11,8 +11,13 @@ export default function Table({ cards }) {
 
   return (
     <div className="table-cards">
-      {cards.map((card) => (
-        <Card key={card.id} card={card} />
+      {cards.map((card, index) => (
+        <Card
+          key={card.id}
+          card={card}
+          animClass={animatePlay ? 'playing' : ''}
+          animDelay={animatePlay ? index * 0.04 : 0}
+        />
       ))}
     </div>
   );

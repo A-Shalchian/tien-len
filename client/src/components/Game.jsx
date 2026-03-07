@@ -1,10 +1,41 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Hand from './Hand.jsx';
 import OpponentHand from './OpponentHand.jsx';
 import Table from './Table.jsx';
 import MoneyDisplay from './MoneyDisplay.jsx';
 import EmoteBar from './EmoteBar.jsx';
 import EmoteOverlay from './EmoteOverlay.jsx';
+
+const CONFETTI_COLORS = ['#f0c040', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22'];
+
+function Confetti() {
+  const pieces = Array.from({ length: 40 }, (_, i) => ({
+    id: i,
+    left: `${Math.random() * 100}%`,
+    bg: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    delay: `${Math.random() * 0.8}s`,
+    size: 6 + Math.random() * 6,
+  }));
+
+  return (
+    <div className="confetti-container">
+      {pieces.map((p) => (
+        <div
+          key={p.id}
+          className="confetti-piece"
+          style={{
+            left: p.left,
+            backgroundColor: p.bg,
+            animationDelay: p.delay,
+            width: p.size,
+            height: p.size,
+            borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function Game({ socket, gameState, setGameState, nicknames, botFlags, myId, playerOrder, onGameState, onGameStart }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -13,9 +44,37 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   const [emotes, setEmotes] = useState([]);
   const [disconnected, setDisconnected] = useState(false);
   const [waitingNext, setWaitingNext] = useState(false);
+  const [dealing, setDealing] = useState(true);
+  const [animatePlay, setAnimatePlay] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const prevTableRef = useRef(null);
 
   const opponents = playerOrder.filter(id => id !== myId);
   const isMyTurn = gameState.turn === myId;
+
+  useEffect(() => {
+    if (dealing) {
+      const timer = setTimeout(() => setDealing(false), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [dealing]);
+
+  useEffect(() => {
+    const currentTable = gameState.table;
+    const prevTable = prevTableRef.current;
+
+    if (currentTable && currentTable.length > 0 && currentTable !== prevTable) {
+      const isNew = !prevTable || prevTable.length === 0 ||
+        (currentTable[0] && prevTable[0] && currentTable[0].id !== prevTable[0].id);
+      if (isNew) {
+        setAnimatePlay(true);
+        const timer = setTimeout(() => setAnimatePlay(false), 500);
+        prevTableRef.current = currentTable;
+        return () => clearTimeout(timer);
+      }
+    }
+    prevTableRef.current = currentTable;
+  }, [gameState.table]);
 
   useEffect(() => {
     if (!socket) return;
@@ -30,11 +89,16 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       setSelectedIds(new Set());
       setHandOver(null);
       setWaitingNext(false);
+      setDealing(true);
+      setShowConfetti(false);
     };
 
     const onHandOver = (data) => {
       setHandOver(data);
       setSelectedIds(new Set());
+      if (data.winner === myId) {
+        setShowConfetti(true);
+      }
     };
 
     const onInstantWin = (data) => {
@@ -46,6 +110,9 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
         balances: data.balances,
         instantWin: data.instantWin,
       });
+      if (data.winner === myId) {
+        setShowConfetti(true);
+      }
     };
 
     const onInvalidPlay = ({ reason }) => {
@@ -83,7 +150,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       socket.off('player-disconnected', onPlayerDisconnected);
       socket.off('waiting-for-opponent', onWaiting);
     };
-  }, [socket, onGameState, onGameStart]);
+  }, [socket, myId, onGameState, onGameStart]);
 
   const toggleCard = useCallback((cardId) => {
     setSelectedIds((prev) => {
@@ -144,7 +211,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
         <div className={`turn-indicator ${isMyTurn ? 'your-turn' : ''}`}>
           {isMyTurn ? 'Your turn' : `${turnNickname}'s turn`}
         </div>
-        <Table cards={gameState.table} />
+        <Table cards={gameState.table} animatePlay={animatePlay} />
       </div>
 
       <EmoteBar onSend={sendEmote} />
@@ -173,7 +240,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
           <span className="hand-name">{myNickname}</span>
           <MoneyDisplay amount={myBalance} />
         </div>
-        <Hand cards={gameState.hand} selectedIds={selectedIds} onToggle={toggleCard} />
+        <Hand cards={gameState.hand} selectedIds={selectedIds} onToggle={toggleCard} dealing={dealing} />
       </div>
 
       {toast && <div className="toast">{toast}</div>}
@@ -181,6 +248,8 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       {emotes.map((e) => (
         <EmoteOverlay key={e.id} emoteId={e.emoteId} from={e.from} />
       ))}
+
+      {showConfetti && <Confetti />}
 
       {handOver && (
         <div className="overlay">

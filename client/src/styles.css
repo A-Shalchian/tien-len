@@ -135,6 +135,89 @@ body {
   margin-top: 12px;
 }
 
+.section-desc {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.bet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.bet-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  background: #2a2a2a;
+  border: 2px solid #333;
+  border-radius: 8px;
+  color: #ccc;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.bet-option.bet-selected {
+  border-color: #f0c040;
+  background: #2a2a1a;
+  color: #f0c040;
+}
+
+.match-search-info {
+  text-align: center;
+  padding: 16px 0;
+}
+
+.match-bet-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.match-bet-amount {
+  font-family: 'Courier New', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #f0c040;
+}
+
+.match-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.match-dots .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #555;
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+
+.match-dots .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.match-dots .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
 /* Buttons */
 .btn {
   display: block;

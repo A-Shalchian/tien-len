@@ -5,6 +5,7 @@ import cors from 'cors';
 import {
   createRoom, joinRoom, startManually, getRoomBySocket,
   getNicknames, getBotFlags, getBots, removePlayer, requestNewHand,
+  joinMatchmaking, leaveMatchmaking,
 } from './rooms.js';
 import { playCards, pass, getGameState, resolveInstantWin } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
@@ -256,7 +257,64 @@ io.on('connection', (socket) => {
       return;
     }
 
+    if (result.kicked && result.kicked.length > 0) {
+      const nicknames = getNicknames(room);
+      for (const k of result.kicked) {
+        if (!k.isBot) {
+          io.to(k.id).emit('kicked-low-balance', {
+            balance: k.balance,
+            ante: room.ante,
+          });
+        }
+        for (const p of room.players) {
+          if (!p.isBot) {
+            io.to(p.id).emit('player-kicked', {
+              nickname: k.nickname,
+              reason: 'low-balance',
+            });
+          }
+        }
+      }
+    }
+
+    if (result.type === 'game-over') {
+      for (const p of room.players) {
+        if (!p.isBot) {
+          io.to(p.id).emit('game-over-insufficient', {
+            reason: 'Not enough players to continue',
+          });
+        }
+      }
+      return;
+    }
+
     broadcastGameStart(room, result);
+  });
+
+  socket.on('find-match', ({ nickname, bet, maxPlayers }) => {
+    const betAmount = Math.max(10, Math.min(1000, parseInt(bet) || 10));
+    const players = Math.min(Math.max(maxPlayers || 4, 2), 4);
+    const result = joinMatchmaking(socket.id, nickname, betAmount, players);
+
+    if (result.matched) {
+      for (const p of result.room.players) {
+        const playerSocket = io.sockets.sockets.get(p.id);
+        if (playerSocket) playerSocket.join(result.code);
+      }
+      broadcastGameStart(result.room, result.dealResult);
+      console.log(`Match found: ${result.code} (bet: ${betAmount})`);
+    } else {
+      socket.emit('match-queued', {
+        position: result.position,
+        needed: result.needed,
+        bet: betAmount,
+      });
+    }
+  });
+
+  socket.on('cancel-match', () => {
+    leaveMatchmaking(socket.id);
+    socket.emit('match-cancelled');
   });
 
   socket.on('emote', ({ emoteId }) => {
@@ -271,6 +329,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    leaveMatchmaking(socket.id);
     const room = removePlayer(socket.id);
     if (room) {
       for (const p of room.players) {

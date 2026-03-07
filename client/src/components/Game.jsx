@@ -44,6 +44,8 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   const [toast, setToast] = useState(null);
   const [emotes, setEmotes] = useState([]);
   const [disconnected, setDisconnected] = useState(false);
+  const [kickedInfo, setKickedInfo] = useState(null);
+  const [gameOverInfo, setGameOverInfo] = useState(null);
   const [waitingNext, setWaitingNext] = useState(false);
   const [dealing, setDealing] = useState(true);
   const [animatePlay, setAnimatePlay] = useState(false);
@@ -150,6 +152,20 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     const onPlayerDisconnected = () => setDisconnected(true);
     const onWaiting = () => setWaitingNext(true);
 
+    const onKicked = (data) => {
+      setKickedInfo(data);
+      playSound('lose');
+    };
+
+    const onGameOver = (data) => {
+      setGameOverInfo(data);
+    };
+
+    const onPlayerKicked = ({ nickname }) => {
+      setToast(`${nickname} was removed (insufficient chips)`);
+      setTimeout(() => setToast(null), 3000);
+    };
+
     socket.on('game-state', onState);
     socket.on('game-start', onStart);
     socket.on('hand-over', onHandOver);
@@ -158,6 +174,9 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     socket.on('emote', onEmote);
     socket.on('player-disconnected', onPlayerDisconnected);
     socket.on('waiting-for-opponent', onWaiting);
+    socket.on('kicked-low-balance', onKicked);
+    socket.on('game-over-insufficient', onGameOver);
+    socket.on('player-kicked', onPlayerKicked);
 
     return () => {
       socket.off('game-state', onState);
@@ -168,6 +187,9 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       socket.off('emote', onEmote);
       socket.off('player-disconnected', onPlayerDisconnected);
       socket.off('waiting-for-opponent', onWaiting);
+      socket.off('kicked-low-balance', onKicked);
+      socket.off('game-over-insufficient', onGameOver);
+      socket.off('player-kicked', onPlayerKicked);
     };
   }, [socket, myId, onGameState, onGameStart, playSound]);
 
@@ -337,6 +359,27 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
         <div className="disconnected-overlay">
           <h2>Player Disconnected</h2>
           <p>The game has ended.</p>
+          <button className="btn btn-primary" onClick={() => window.location.reload()}>
+            Back to Lobby
+          </button>
+        </div>
+      )}
+
+      {kickedInfo && (
+        <div className="disconnected-overlay">
+          <h2>Insufficient Chips</h2>
+          <p>You need at least {kickedInfo.ante} chips to continue.</p>
+          <p>Your balance: {kickedInfo.balance} chips</p>
+          <button className="btn btn-primary" onClick={() => window.location.reload()}>
+            Back to Lobby
+          </button>
+        </div>
+      )}
+
+      {gameOverInfo && (
+        <div className="disconnected-overlay">
+          <h2>Game Over</h2>
+          <p>{gameOverInfo.reason}</p>
           <button className="btn btn-primary" onClick={() => window.location.reload()}>
             Back to Lobby
           </button>

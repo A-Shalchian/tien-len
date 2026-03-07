@@ -134,6 +134,34 @@ function removePlayer(socketId) {
   return room;
 }
 
+function checkAndRemoveBrokePlayers(room) {
+  if (!room.game) return [];
+
+  const ante = room.ante;
+  const kicked = [];
+
+  room.players = room.players.filter(p => {
+    const balance = room.game.balances[p.id];
+    if (balance < ante) {
+      kicked.push({ id: p.id, nickname: p.nickname, isBot: p.isBot, balance });
+      delete room.game.balances[p.id];
+      delete room.game.hands[p.id];
+      return false;
+    }
+    return true;
+  });
+
+  if (kicked.length > 0) {
+    room.game.players = room.players.map(p => p.id);
+
+    if (room.game.previousWinner && !room.players.some(p => p.id === room.game.previousWinner)) {
+      room.game.previousWinner = null;
+    }
+  }
+
+  return kicked;
+}
+
 function requestNewHand(room, socketId) {
   room.readyForNext.add(socketId);
 
@@ -144,14 +172,76 @@ function requestNewHand(room, socketId) {
   const totalPlayers = room.players.length;
   if (room.readyForNext.size >= totalPlayers) {
     room.readyForNext.clear();
+
+    const kicked = checkAndRemoveBrokePlayers(room);
+
+    if (room.players.length < 2) {
+      return { type: 'game-over', kicked, reason: 'not-enough-players' };
+    }
+
     const result = dealHand(room.game);
+    result.kicked = kicked;
     return result;
   }
   return null;
+}
+
+const matchQueues = new Map();
+
+function joinMatchmaking(socketId, nickname, bet, maxPlayers = 4) {
+  const key = `${bet}-${maxPlayers}`;
+
+  if (!matchQueues.has(key)) {
+    matchQueues.set(key, []);
+  }
+
+  const queue = matchQueues.get(key);
+
+  if (queue.some(p => p.id === socketId)) {
+    return { queued: true, position: queue.findIndex(p => p.id === socketId) + 1, needed: maxPlayers };
+  }
+
+  queue.push({ id: socketId, nickname });
+
+  if (queue.length >= maxPlayers) {
+    const players = queue.splice(0, maxPlayers);
+    let code = generateCode();
+    while (rooms.has(code)) code = generateCode();
+
+    rooms.set(code, {
+      code,
+      host: players[0].id,
+      players: players.map(p => ({ id: p.id, nickname: p.nickname, isBot: false })),
+      game: null,
+      ante: bet,
+      maxPlayers,
+      fillWithBots: false,
+      readyForNext: new Set(),
+    });
+
+    const room = rooms.get(code);
+    const result = startGame(room);
+    return { matched: true, room: result.room, dealResult: result.dealResult, code };
+  }
+
+  return { queued: true, position: queue.length, needed: maxPlayers };
+}
+
+function leaveMatchmaking(socketId) {
+  for (const [key, queue] of matchQueues) {
+    const idx = queue.findIndex(p => p.id === socketId);
+    if (idx !== -1) {
+      queue.splice(idx, 1);
+      if (queue.length === 0) matchQueues.delete(key);
+      return true;
+    }
+  }
+  return false;
 }
 
 export {
   rooms, createRoom, joinRoom, startManually,
   getRoomBySocket, getNicknames, getBotFlags, getBots,
   removePlayer, requestNewHand,
+  joinMatchmaking, leaveMatchmaking, matchQueues,
 };

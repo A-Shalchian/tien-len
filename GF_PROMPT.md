@@ -1,6 +1,6 @@
 # Claude Code Prompt - Tien Len UI/UX Features
 
-You are working on a **Tien Len (Vietnamese card game)** web app. It's a React + Vite frontend with a Socket.IO backend. You are responsible for **UI/UX, animations, audio, and visual polish**. Another developer (Ryan) is handling server-side game logic changes separately — do NOT modify server files unless absolutely necessary.
+You are working on a **Tien Len (Vietnamese card game)** web app. It's a React + Vite frontend with a Socket.IO backend. You are responsible for **UI/UX, animations, audio, and visual polish**. Another developer (Arash) is handling server-side game logic changes separately — do NOT modify server files unless absolutely necessary.
 
 ## Project Structure
 

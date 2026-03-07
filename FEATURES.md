@@ -2,14 +2,14 @@
 
 ## How We're Splitting Work
 
-Ryan handles **server-side game logic and core gameplay upgrades**.
+Arash handles **server-side game logic and core gameplay upgrades**.
 GF handles **UI/UX, animations, audio, and visual polish**.
 
 This keeps us working in different files 90% of the time so we don't conflict.
 
 ---
 
-## Ryan's Features
+## Arash's Features
 
 ### 1. 4-Player Support
 The real Tien Len is 4 players. Right now it's hardcoded for 2.
@@ -117,6 +117,6 @@ Ryan will send game history data from the server. Build the UI:
 
 ## Shared / Coordinate Together
 
-- **4-player UI layout** — Ryan builds the server logic, GF builds the multi-opponent layout. Coordinate on the data shape.
-- **Stats** — Ryan sends the data, GF builds the display.
-- **Bot UI indicators** — Ryan creates bots, GF adds a bot badge/icon to distinguish them from humans.
+- **4-player UI layout** — Arash builds the server logic, GF builds the multi-opponent layout. Coordinate on the data shape.
+- **Stats** — Arash sends the data, GF builds the display.
+- **Bot UI indicators** — Arash creates bots, GF adds a bot badge/icon to distinguish them from humans.

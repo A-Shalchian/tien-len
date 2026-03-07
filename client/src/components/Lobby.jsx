@@ -12,6 +12,7 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
   const [lobbyPlayers, setLobbyPlayers] = useState([]);
   const [matchBet, setMatchBet] = useState(50);
   const [matchPlayers, setMatchPlayers] = useState(4);
+  const [matchWithBots, setMatchWithBots] = useState(true);
   const [searching, setSearching] = useState(false);
   const [queueInfo, setQueueInfo] = useState(null);
 
@@ -92,6 +93,7 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
       nickname: nickname.trim(),
       bet: matchBet,
       maxPlayers: matchPlayers,
+      fillWithBots: matchWithBots,
     });
   };
 
@@ -103,7 +105,7 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
 
   return (
     <div className="lobby">
-      <h1 className="lobby-title">Ti\u00ean L\u00ean</h1>
+      <h1 className="lobby-title">Tiến Lên</h1>
       <p className="lobby-subtitle">Vietnamese Card Game</p>
 
       <div className="lobby-form">
@@ -170,8 +172,18 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
                   <option value={4}>4</option>
                 </select>
               </div>
+              <div className="ante-row">
+                <label className="bot-toggle">
+                  <input
+                    type="checkbox"
+                    checked={matchWithBots}
+                    onChange={(e) => setMatchWithBots(e.target.checked)}
+                  />
+                  Fill empty seats with bots
+                </label>
+              </div>
               <button onClick={handleFindMatch} disabled={!nickname.trim()} className="btn btn-primary">
-                Find Match
+                {matchWithBots ? 'Start with Bots' : 'Find Match'}
               </button>
             </div>
 

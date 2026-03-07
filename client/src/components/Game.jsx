@@ -57,6 +57,18 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   const opponents = playerOrder.filter(id => id !== myId);
   const isMyTurn = gameState.turn === myId;
 
+  const positionMap = {};
+  if (opponents.length === 1) {
+    positionMap[opponents[0]] = 'top';
+  } else if (opponents.length === 2) {
+    positionMap[opponents[0]] = 'left';
+    positionMap[opponents[1]] = 'top';
+  } else if (opponents.length >= 3) {
+    positionMap[opponents[0]] = 'left';
+    positionMap[opponents[1]] = 'top';
+    positionMap[opponents[2]] = 'right';
+  }
+
   useEffect(() => {
     if (dealing) {
       const timer = setTimeout(() => setDealing(false), 1000);
@@ -278,32 +290,53 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   const turnNickname = nicknames[gameState.turn] || 'Unknown';
   const passedSet = new Set(gameState.passedPlayers || []);
 
+  const renderOpponent = (oppId, position) => {
+    const name = nicknames[oppId] || 'Player';
+    const initial = name.charAt(0).toUpperCase();
+    return (
+      <div
+        key={oppId}
+        className={`opponent-slot pos-${position} ${gameState.turn === oppId ? 'active-turn' : ''} ${passedSet.has(oppId) ? 'passed' : ''}`}
+      >
+        <div className="opponent-avatar">
+          <span className="avatar-circle">{initial}</span>
+          {passedSet.has(oppId) && <span className="avatar-passed">P</span>}
+        </div>
+        <div className="opponent-details">
+          <span className="opponent-name">
+            {name}
+            {botFlags[oppId] && <span className="bot-badge">BOT</span>}
+          </span>
+          <MoneyDisplay amount={gameState.balances?.[oppId] ?? 0} />
+        </div>
+        <OpponentHand count={gameState.opponents?.[oppId] ?? 0} />
+      </div>
+    );
+  };
+
   return (
     <div className="game">
       <button className="mute-btn" onClick={toggleMute}>
         {muted ? '\u{1F507}' : '\u{1F50A}'}
       </button>
-      <div className="opponents-area">
-        {opponents.map((oppId) => (
-          <div key={oppId} className={`opponent-slot ${gameState.turn === oppId ? 'active-turn' : ''} ${passedSet.has(oppId) ? 'passed' : ''}`}>
-            <div className="opponent-info">
-              <span className="opponent-name">
-                {nicknames[oppId] || 'Player'}
-                {botFlags[oppId] && <span className="bot-badge">BOT</span>}
-              </span>
-              <MoneyDisplay amount={gameState.balances?.[oppId] ?? 0} />
-            </div>
-            <OpponentHand count={gameState.opponents?.[oppId] ?? 0} />
-            {passedSet.has(oppId) && <span className="passed-label">Passed</span>}
-          </div>
-        ))}
+
+      <div className="opponents-area mobile-opponents">
+        {opponents.map((oppId) => renderOpponent(oppId, positionMap[oppId]))}
       </div>
 
-      <div className="table-area">
-        <div className={`turn-indicator ${isMyTurn ? 'your-turn' : ''}`}>
-          {isMyTurn ? 'Your turn' : `${turnNickname}'s turn`}
+      <div className="game-board">
+        {opponents.map((oppId) => (
+          <div key={oppId} className={`desktop-opponent pos-${positionMap[oppId]}`}>
+            {renderOpponent(oppId, positionMap[oppId])}
+          </div>
+        ))}
+
+        <div className="table-area">
+          <div className={`turn-indicator ${isMyTurn ? 'your-turn' : ''}`}>
+            {isMyTurn ? 'Your turn' : `${turnNickname}'s turn`}
+          </div>
+          <Table cards={gameState.table} animatePlay={animatePlay} />
         </div>
-        <Table cards={gameState.table} animatePlay={animatePlay} />
       </div>
 
       <EmoteBar onSend={sendEmote} />

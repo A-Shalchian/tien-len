@@ -219,6 +219,7 @@ io.on('connection', (socket) => {
     const room = getRoomBySocket(socket.id);
     if (!room) return;
 
+    room.fillWithBots = true;
     const result = startManually(room.code, socket.id);
     if (result.error) {
       socket.emit('join-error', { error: result.error });
@@ -331,9 +332,25 @@ io.on('connection', (socket) => {
     broadcastGameStart(room, result);
   });
 
-  socket.on('find-match', ({ nickname, bet, maxPlayers }) => {
+  socket.on('find-match', ({ nickname, bet, maxPlayers, fillWithBots }) => {
     const betAmount = Math.max(10, Math.min(1000, parseInt(bet) || 10));
     const players = Math.min(Math.max(maxPlayers || 4, 2), 4);
+
+    if (fillWithBots) {
+      const code = createRoom(socket.id, nickname, betAmount, players, true);
+      socket.join(code);
+      const room = getRoomBySocket(socket.id);
+      room.fillWithBots = true;
+      const result = startManually(code, socket.id);
+      if (result.error) {
+        socket.emit('join-error', { error: result.error });
+        return;
+      }
+      broadcastGameStart(result.room, result.dealResult);
+      console.log(`Bot match started: ${code} (bet: ${betAmount})`);
+      return;
+    }
+
     const result = joinMatchmaking(socket.id, nickname, betAmount, players);
 
     if (result.matched) {

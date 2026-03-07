@@ -7,7 +7,6 @@
 
 html, body, #root {
   height: 100%;
-  overflow: hidden;
 }
 
 body {
@@ -292,8 +291,8 @@ body {
   opacity: 1;
 }
 
-/* Opponents Area */
-.opponents-area {
+/* Opponents Area (Mobile) */
+.mobile-opponents {
   display: flex;
   gap: 4px;
   padding: 6px 8px;
@@ -301,11 +300,25 @@ body {
   border-bottom: 1px solid #333;
   flex-shrink: 0;
   overflow-x: auto;
+  justify-content: center;
+}
+
+.desktop-opponent {
+  display: none;
+}
+
+.game-board {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
 }
 
 .opponent-slot {
-  flex: 1;
-  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 8px;
   border-radius: 6px;
   background: #2a2a2a;
@@ -321,16 +334,54 @@ body {
   opacity: 0.5;
 }
 
-.opponent-info {
+.opponent-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatar-circle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 4px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4a4a6a, #3a3a5a);
+  color: #ddd;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.active-turn .avatar-circle {
+  background: linear-gradient(135deg, #3a7d44, #2d6a35);
+  box-shadow: 0 0 8px rgba(90, 200, 90, 0.4);
+}
+
+.avatar-passed {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #555;
+  color: #aaa;
+  font-size: 0.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.opponent-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
 }
 
 .opponent-name {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #999;
   white-space: nowrap;
   overflow: hidden;
@@ -338,21 +389,13 @@ body {
 }
 
 .bot-badge {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   background: #444;
   color: #aaa;
   padding: 1px 4px;
   border-radius: 3px;
   margin-left: 4px;
   vertical-align: middle;
-}
-
-.passed-label {
-  font-size: 0.65rem;
-  color: #777;
-  position: absolute;
-  bottom: 2px;
-  right: 6px;
 }
 
 .opponent-cards {
@@ -881,35 +924,86 @@ body {
   }
 }
 
-/* Desktop Responsive (Feature 4) */
+/* Desktop Responsive */
 @media (min-width: 768px) {
-  .game {
-    max-width: 1200px;
-    margin: 0 auto;
+  .mobile-opponents {
+    display: none;
   }
 
-  .opponents-area {
-    padding: 10px 16px;
-    gap: 8px;
+  .desktop-opponent {
+    display: block;
+    position: absolute;
+    z-index: 10;
   }
 
-  .opponent-slot {
+  .desktop-opponent .opponent-slot {
+    background: rgba(30, 30, 30, 0.9);
+    border: 1px solid #333;
     padding: 10px 14px;
-    border-radius: 8px;
+    border-radius: 10px;
   }
 
-  .opponent-name {
-    font-size: 0.9rem;
+  .desktop-opponent .opponent-slot.active-turn {
+    background: rgba(26, 46, 26, 0.95);
+    border-color: #3a7d44;
   }
 
-  .opponent-cards {
+  .desktop-opponent .avatar-circle {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .desktop-opponent .opponent-name {
+    font-size: 0.85rem;
+  }
+
+  .desktop-opponent .opponent-cards {
     gap: 2px;
   }
 
-  .card-back {
-    width: 14px;
-    height: 22px;
-    border-radius: 3px;
+  .desktop-opponent.pos-top {
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .desktop-opponent.pos-top .opponent-slot {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .desktop-opponent.pos-left {
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .desktop-opponent.pos-left .opponent-slot {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .desktop-opponent.pos-right {
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .desktop-opponent.pos-right .opponent-slot {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .game-board {
+    position: relative;
+  }
+
+  .game-board .table-area {
+    margin: 0 120px;
   }
 
   .card {
@@ -982,8 +1076,10 @@ body {
     margin-left: 0;
   }
 
-  .table-area {
-    min-height: 200px;
+  .card-back {
+    width: 14px;
+    height: 22px;
+    border-radius: 3px;
   }
 
   .hand-area {

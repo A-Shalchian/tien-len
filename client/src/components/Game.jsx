@@ -166,6 +166,21 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       setTimeout(() => setToast(null), 3000);
     };
 
+    const onBombPenalty = ({ victim, victimNickname, bomber, bomberNickname, penalty }) => {
+      const isVictim = victim === myId;
+      const isBomber = bomber === myId;
+      let msg;
+      if (isVictim) {
+        msg = `Your 2 got bombed! -${penalty} chips to ${bomberNickname}`;
+      } else if (isBomber) {
+        msg = `You bombed ${victimNickname}'s 2! +${penalty} chips`;
+      } else {
+        msg = `${bomberNickname} bombed ${victimNickname}'s 2! (${penalty} chips)`;
+      }
+      setToast(msg);
+      setTimeout(() => setToast(null), 3000);
+    };
+
     socket.on('game-state', onState);
     socket.on('game-start', onStart);
     socket.on('hand-over', onHandOver);
@@ -177,6 +192,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     socket.on('kicked-low-balance', onKicked);
     socket.on('game-over-insufficient', onGameOver);
     socket.on('player-kicked', onPlayerKicked);
+    socket.on('bomb-penalty', onBombPenalty);
 
     return () => {
       socket.off('game-state', onState);
@@ -190,6 +206,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       socket.off('kicked-low-balance', onKicked);
       socket.off('game-over-insufficient', onGameOver);
       socket.off('player-kicked', onPlayerKicked);
+      socket.off('bomb-penalty', onBombPenalty);
     };
   }, [socket, myId, onGameState, onGameStart, playSound]);
 

@@ -76,6 +76,20 @@ function broadcastState(room, result) {
   const nicknames = getNicknames(room);
   const bots = getBotFlags(room);
 
+  if (result.bombPenalty) {
+    const bp = result.bombPenalty;
+    for (const p of room.players) {
+      if (p.isBot) continue;
+      io.to(p.id).emit('bomb-penalty', {
+        victim: bp.victim,
+        victimNickname: nicknames[bp.victim],
+        bomber: bp.bomber,
+        bomberNickname: nicknames[bp.bomber],
+        penalty: bp.penalty,
+      });
+    }
+  }
+
   for (const p of room.players) {
     if (p.isBot) continue;
     const state = getGameState(room.game, p.id);
@@ -131,6 +145,19 @@ function executeBotTurn(room, botId) {
   const nicknames = getNicknames(room);
 
   if (result.type === 'hand-over') {
+    if (result.bombPenalty) {
+      const bp = result.bombPenalty;
+      for (const p of room.players) {
+        if (p.isBot) continue;
+        io.to(p.id).emit('bomb-penalty', {
+          victim: bp.victim,
+          victimNickname: nicknames[bp.victim],
+          bomber: bp.bomber,
+          bomberNickname: nicknames[bp.bomber],
+          penalty: bp.penalty,
+        });
+      }
+    }
     for (const p of room.players) {
       if (p.isBot) continue;
       io.to(p.id).emit('hand-over', {
@@ -215,6 +242,19 @@ io.on('connection', (socket) => {
     const nicknames = getNicknames(room);
 
     if (result.type === 'hand-over') {
+      if (result.bombPenalty) {
+        const bp = result.bombPenalty;
+        for (const p of room.players) {
+          if (p.isBot) continue;
+          io.to(p.id).emit('bomb-penalty', {
+            victim: bp.victim,
+            victimNickname: nicknames[bp.victim],
+            bomber: bp.bomber,
+            bomberNickname: nicknames[bp.bomber],
+            penalty: bp.penalty,
+          });
+        }
+      }
       for (const p of room.players) {
         if (p.isBot) continue;
         io.to(p.id).emit('hand-over', {

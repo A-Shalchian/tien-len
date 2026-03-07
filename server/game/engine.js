@@ -100,6 +100,33 @@ function getActivePlayers(game) {
   return game.players.filter(p => !game.passedPlayers.has(p));
 }
 
+function isBombAgainst2s(playCombo, tableCombo) {
+  if (!tableCombo || tableCombo.high.rank !== '2') return false;
+
+  if (playCombo.type === 'four-of-a-kind' && tableCombo.type === 'single') return true;
+
+  if (playCombo.type === 'double-sequence' && playCombo.pairCount >= 3 &&
+      tableCombo.type === 'single') return true;
+
+  if (playCombo.type === 'double-sequence' && playCombo.pairCount >= 4 &&
+      tableCombo.type === 'pair') return true;
+
+  if (playCombo.type === 'double-sequence' && playCombo.pairCount >= 5 &&
+      tableCombo.type === 'triple') return true;
+
+  return false;
+}
+
+function calcBombPenalty(tableCards, ante) {
+  let penalty = 0;
+  for (const card of tableCards) {
+    if (card.rank !== '2') continue;
+    const isRed = card.suit === 'D' || card.suit === 'H';
+    penalty += isRed ? ante * 2 : ante;
+  }
+  return penalty;
+}
+
 function playCards(game, playerId, cardIds) {
   if (game.turn !== playerId) {
     return { error: 'Not your turn' };
@@ -129,12 +156,23 @@ function playCards(game, playerId, cardIds) {
     return { error: 'Play does not beat the current cards on the table' };
   }
 
+  let bombPenalty = null;
+  if (tableCombo && isBombAgainst2s(combo, tableCombo)) {
+    const victimId = game.table.playedBy;
+    const penalty = calcBombPenalty(tableCombo.cards, game.ante);
+    game.balances[victimId] -= penalty;
+    game.balances[playerId] += penalty;
+    bombPenalty = { victim: victimId, bomber: playerId, penalty, cards: tableCombo.cards };
+  }
+
   game.hands[playerId] = hand.filter(c => !cardIds.includes(c.id));
   game.table = { combo, playedBy: playerId };
   game.lastPlayer = playerId;
 
   if (game.hands[playerId].length === 0) {
-    return resolveWin(game, playerId);
+    const result = resolveWin(game, playerId);
+    if (bombPenalty) result.bombPenalty = bombPenalty;
+    return result;
   }
 
   const nextPlayer = advanceTurn(game, playerId);
@@ -149,6 +187,7 @@ function playCards(game, playerId, cardIds) {
       combo,
       turn: game.turn,
       balances: { ...game.balances },
+      bombPenalty,
     };
   }
 
@@ -158,6 +197,7 @@ function playCards(game, playerId, cardIds) {
     combo,
     turn: game.turn,
     balances: { ...game.balances },
+    bombPenalty,
   };
 }
 

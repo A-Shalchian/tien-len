@@ -205,6 +205,35 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     }, 1500);
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if (e.key === 'Enter' && isMyTurn) {
+        e.preventDefault();
+        handlePlay();
+      } else if (e.key === ' ' && isMyTurn) {
+        e.preventDefault();
+        if (gameState.table && gameState.table.length > 0) handlePass();
+      } else if (e.key === 'Escape') {
+        setSelectedIds(new Set());
+      } else if (e.key >= '1' && e.key <= '9') {
+        const index = parseInt(e.key) - 1;
+        if (gameState.hand && index < gameState.hand.length) {
+          toggleCard(gameState.hand[index].id);
+        }
+      } else if (e.key === '0') {
+        const index = 9;
+        if (gameState.hand && index < gameState.hand.length) {
+          toggleCard(gameState.hand[index].id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
+
   const myBalance = gameState.balances?.[myId] ?? 0;
   const myNickname = nicknames[myId] || 'You';
   const turnNickname = nicknames[gameState.turn] || 'Unknown';

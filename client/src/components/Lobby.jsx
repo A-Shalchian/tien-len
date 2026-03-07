@@ -4,7 +4,10 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
   const [nickname, setNickname] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [ante, setAnte] = useState(10);
+  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [fillWithBots, setFillWithBots] = useState(false);
   const [waiting, setWaiting] = useState(false);
+  const [lobbyPlayers, setLobbyPlayers] = useState([]);
 
   useEffect(() => {
     if (!socket) return;
@@ -23,27 +26,42 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
       setError(error);
     };
 
+    const handlePlayerJoined = ({ nicknames, playerCount, maxPlayers }) => {
+      setLobbyPlayers(Object.values(nicknames));
+    };
+
     socket.on('room-created', handleRoomCreated);
     socket.on('game-start', handleGameStart);
     socket.on('game-state', onGameState);
     socket.on('join-error', handleJoinError);
+    socket.on('player-joined', handlePlayerJoined);
 
     return () => {
       socket.off('room-created', handleRoomCreated);
       socket.off('game-start', handleGameStart);
       socket.off('game-state', onGameState);
       socket.off('join-error', handleJoinError);
+      socket.off('player-joined', handlePlayerJoined);
     };
   }, [socket, onRoomCreated, onGameStart, onGameState, setError]);
 
   const handleCreate = () => {
     if (!nickname.trim()) return;
-    socket.emit('create-room', { nickname: nickname.trim(), ante });
+    socket.emit('create-room', {
+      nickname: nickname.trim(),
+      ante,
+      maxPlayers,
+      fillWithBots,
+    });
   };
 
   const handleJoin = () => {
     if (!nickname.trim() || !joinCode.trim()) return;
     socket.emit('join-room', { roomCode: joinCode.trim(), nickname: nickname.trim() });
+  };
+
+  const handleStartGame = () => {
+    socket.emit('start-game');
   };
 
   return (
@@ -77,6 +95,28 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
                 />
                 <span className="chip-label">chips</span>
               </div>
+              <div className="ante-row">
+                <label>Players:</label>
+                <select
+                  value={maxPlayers}
+                  onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
+                  className="lobby-input ante-input"
+                >
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                </select>
+              </div>
+              <div className="ante-row">
+                <label className="bot-toggle">
+                  <input
+                    type="checkbox"
+                    checked={fillWithBots}
+                    onChange={(e) => setFillWithBots(e.target.checked)}
+                  />
+                  Fill empty seats with bots
+                </label>
+              </div>
               <button onClick={handleCreate} disabled={!nickname.trim()} className="btn btn-primary">
                 Create Room
               </button>
@@ -103,9 +143,21 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
           <div className="lobby-section waiting-section">
             <h2>Room Code</h2>
             <div className="room-code">{roomCode}</div>
+            {lobbyPlayers.length > 0 && (
+              <div className="lobby-players">
+                {lobbyPlayers.map((name, i) => (
+                  <span key={i} className="lobby-player-tag">{name}</span>
+                ))}
+              </div>
+            )}
             <p className="waiting-text">
-              {waiting ? 'Waiting for opponent to join...' : 'Share this code with your friend'}
+              {waiting ? 'Waiting for players to join...' : 'Share this code with your friends'}
             </p>
+            {waiting && (
+              <button onClick={handleStartGame} className="btn btn-secondary" style={{ marginTop: 12 }}>
+                Start with Bots
+              </button>
+            )}
           </div>
         )}
 

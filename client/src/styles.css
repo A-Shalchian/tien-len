@@ -186,26 +186,80 @@ body {
   overflow: hidden;
 }
 
-/* Opponent Area */
-.opponent-area {
-  padding: 8px 16px;
+/* Opponents Area */
+.opponents-area {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  gap: 4px;
+  padding: 6px 8px;
   background: #222;
   border-bottom: 1px solid #333;
   flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.opponent-slot {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #2a2a2a;
+  position: relative;
+}
+
+.opponent-slot.active-turn {
+  background: #1a2e1a;
+  border: 1px solid #3a7d44;
+}
+
+.opponent-slot.passed {
+  opacity: 0.5;
 }
 
 .opponent-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .opponent-name {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bot-badge {
+  font-size: 0.6rem;
+  background: #444;
+  color: #aaa;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.passed-label {
+  font-size: 0.65rem;
+  color: #777;
+  position: absolute;
+  bottom: 2px;
+  right: 6px;
+}
+
+.opponent-cards {
+  display: flex;
+  gap: 1px;
+}
+
+.card-back {
+  width: 10px;
+  height: 16px;
+  background: #3a3a5a;
+  border-radius: 2px;
+  border: 1px solid #4a4a6a;
 }
 
 .card-count {
@@ -214,17 +268,37 @@ body {
   color: #666;
 }
 
-.opponent-cards {
+.lobby-players {
   display: flex;
-  gap: 2px;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 10px;
 }
 
-.card-back {
-  width: 14px;
-  height: 20px;
-  background: #3a3a5a;
-  border-radius: 2px;
-  border: 1px solid #4a4a6a;
+.lobby-player-tag {
+  background: #333;
+  color: #ccc;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+.bot-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.bot-toggle input[type="checkbox"] {
+  accent-color: #3a7d44;
+}
+
+.loser-details {
+  margin-bottom: 4px;
 }
 
 /* Table Area */

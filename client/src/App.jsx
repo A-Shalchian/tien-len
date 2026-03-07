@@ -8,7 +8,9 @@ export default function App() {
   const [gameState, setGameState] = useState(null);
   const [roomCode, setRoomCode] = useState(null);
   const [nicknames, setNicknames] = useState({});
+  const [botFlags, setBotFlags] = useState({});
   const [myId, setMyId] = useState(null);
+  const [playerOrder, setPlayerOrder] = useState([]);
   const [error, setError] = useState(null);
 
   const handleRoomCreated = (code) => {
@@ -18,13 +20,16 @@ export default function App() {
   const handleGameStart = (data) => {
     setMyId(data.you);
     setNicknames(data.nicknames);
+    setBotFlags(data.bots || {});
+    setPlayerOrder(data.players || []);
     setGameState({
       hand: data.hand,
       table: [],
       turn: data.firstPlayer,
       balances: data.balances,
-      opponentCardCount: 13,
+      opponents: buildOpponents(data.players, data.you, 13),
       mustPlay3S: data.mustPlay3S || false,
+      passedPlayers: [],
     });
     setError(null);
   };
@@ -36,12 +41,14 @@ export default function App() {
       table: data.table,
       turn: data.turn,
       balances: data.balances,
-      opponentCardCount: data.opponentCardCount,
+      opponents: data.opponents || prev?.opponents || {},
       lastPlay: data.lastPlay,
       passedBy: data.passedBy,
       newRound: data.newRound,
+      passedPlayers: data.passedPlayers || [],
     }));
     if (data.nicknames) setNicknames(data.nicknames);
+    if (data.bots) setBotFlags(data.bots);
   };
 
   if (!gameState) {
@@ -64,10 +71,22 @@ export default function App() {
       gameState={gameState}
       setGameState={setGameState}
       nicknames={nicknames}
+      botFlags={botFlags}
       myId={myId}
+      playerOrder={playerOrder}
       roomCode={roomCode}
       onGameState={handleGameState}
       onGameStart={handleGameStart}
     />
   );
+}
+
+function buildOpponents(players, myId, cardCount) {
+  const opponents = {};
+  for (const pid of players || []) {
+    if (pid !== myId) {
+      opponents[pid] = cardCount;
+    }
+  }
+  return opponents;
 }

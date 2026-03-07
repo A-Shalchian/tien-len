@@ -1,5 +1,5 @@
 const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
-const SUITS = ['S', 'C', 'D', 'H']; // spades, clubs, diamonds, hearts (low→high)
+const SUITS = ['S', 'C', 'D', 'H'];
 
 function createDeck() {
   const deck = [];
@@ -20,8 +20,12 @@ function shuffle(deck) {
   return a;
 }
 
-function deal(deck) {
-  return [deck.slice(0, 13), deck.slice(13, 26)];
+function deal(deck, playerCount = 4) {
+  const hands = [];
+  for (let i = 0; i < playerCount; i++) {
+    hands.push(deck.slice(i * 13, (i + 1) * 13));
+  }
+  return hands;
 }
 
 function rankValue(rank) {

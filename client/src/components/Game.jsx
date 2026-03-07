@@ -6,7 +6,7 @@ import MoneyDisplay from './MoneyDisplay.jsx';
 import EmoteBar from './EmoteBar.jsx';
 import EmoteOverlay from './EmoteOverlay.jsx';
 
-export default function Game({ socket, gameState, setGameState, nicknames, myId, onGameState, onGameStart }) {
+export default function Game({ socket, gameState, setGameState, nicknames, botFlags, myId, playerOrder, onGameState, onGameStart }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [handOver, setHandOver] = useState(null);
   const [toast, setToast] = useState(null);
@@ -14,7 +14,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, myId,
   const [disconnected, setDisconnected] = useState(false);
   const [waitingNext, setWaitingNext] = useState(false);
 
-  const opponentId = Object.keys(nicknames).find((id) => id !== myId);
+  const opponents = playerOrder.filter(id => id !== myId);
   const isMyTurn = gameState.turn === myId;
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, myId,
       setTimeout(() => setToast(null), 2000);
     };
 
-    const onEmote = ({ emoteId }) => {
+    const onEmote = ({ emoteId, from }) => {
       const id = Date.now() + Math.random();
       setEmotes((prev) => [...prev, { id, emoteId, from: 'opponent' }]);
       setTimeout(() => {
@@ -61,7 +61,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, myId,
       }, 1500);
     };
 
-    const onDisconnect = () => setDisconnected(true);
+    const onPlayerDisconnected = () => setDisconnected(true);
     const onWaiting = () => setWaitingNext(true);
 
     socket.on('game-state', onState);
@@ -70,7 +70,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, myId,
     socket.on('instant-win', onInstantWin);
     socket.on('invalid-play', onInvalidPlay);
     socket.on('emote', onEmote);
-    socket.on('opponent-disconnected', onDisconnect);
+    socket.on('player-disconnected', onPlayerDisconnected);
     socket.on('waiting-for-opponent', onWaiting);
 
     return () => {
@@ -80,7 +80,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, myId,
       socket.off('instant-win', onInstantWin);
       socket.off('invalid-play', onInvalidPlay);
       socket.off('emote', onEmote);
-      socket.off('opponent-disconnected', onDisconnect);
+      socket.off('player-disconnected', onPlayerDisconnected);
       socket.off('waiting-for-opponent', onWaiting);
     };
   }, [socket, onGameState, onGameStart]);
@@ -118,33 +118,37 @@ export default function Game({ socket, gameState, setGameState, nicknames, myId,
   };
 
   const myBalance = gameState.balances?.[myId] ?? 0;
-  const oppBalance = gameState.balances?.[opponentId] ?? 0;
   const myNickname = nicknames[myId] || 'You';
-  const oppNickname = nicknames[opponentId] || 'Opponent';
+  const turnNickname = nicknames[gameState.turn] || 'Unknown';
+  const passedSet = new Set(gameState.passedPlayers || []);
 
   return (
     <div className="game">
-      {/* Opponent area */}
-      <div className="opponent-area">
-        <div className="opponent-info">
-          <span className="opponent-name">{oppNickname}</span>
-          <OpponentHand count={gameState.opponentCardCount} />
-        </div>
-        <MoneyDisplay amount={oppBalance} />
+      <div className="opponents-area">
+        {opponents.map((oppId) => (
+          <div key={oppId} className={`opponent-slot ${gameState.turn === oppId ? 'active-turn' : ''} ${passedSet.has(oppId) ? 'passed' : ''}`}>
+            <div className="opponent-info">
+              <span className="opponent-name">
+                {nicknames[oppId] || 'Player'}
+                {botFlags[oppId] && <span className="bot-badge">BOT</span>}
+              </span>
+              <MoneyDisplay amount={gameState.balances?.[oppId] ?? 0} />
+            </div>
+            <OpponentHand count={gameState.opponents?.[oppId] ?? 0} />
+            {passedSet.has(oppId) && <span className="passed-label">Passed</span>}
+          </div>
+        ))}
       </div>
 
-      {/* Table */}
       <div className="table-area">
         <div className={`turn-indicator ${isMyTurn ? 'your-turn' : ''}`}>
-          {isMyTurn ? 'Your turn' : `${oppNickname}'s turn`}
+          {isMyTurn ? 'Your turn' : `${turnNickname}'s turn`}
         </div>
         <Table cards={gameState.table} />
       </div>
 
-      {/* Emote bar */}
       <EmoteBar onSend={sendEmote} />
 
-      {/* Action buttons */}
       {isMyTurn && (
         <div className="action-bar">
           <button
@@ -164,7 +168,6 @@ export default function Game({ socket, gameState, setGameState, nicknames, myId,
         </div>
       )}
 
-      {/* Your hand */}
       <div className="hand-area">
         <div className="hand-info">
           <span className="hand-name">{myNickname}</span>
@@ -173,29 +176,34 @@ export default function Game({ socket, gameState, setGameState, nicknames, myId,
         <Hand cards={gameState.hand} selectedIds={selectedIds} onToggle={toggleCard} />
       </div>
 
-      {/* Toast */}
       {toast && <div className="toast">{toast}</div>}
 
-      {/* Emote animations */}
       {emotes.map((e) => (
         <EmoteOverlay key={e.id} emoteId={e.emoteId} from={e.from} />
       ))}
 
-      {/* Hand over overlay */}
       {handOver && (
         <div className="overlay">
           <h2>{handOver.winner === myId ? 'You Win!' : `${handOver.winnerNickname} Wins`}</h2>
           {handOver.instantWin && (
             <p className="result-detail">Instant win: {handOver.instantWin.type === 'four-twos' ? 'Four 2s' : 'Dragon (3→A)'}</p>
           )}
-          {handOver.penalty > 0 && (
-            <p className="result-detail">
-              Penalty: {handOver.penalty} chips ({handOver.loserCards?.length} cards remaining)
-            </p>
+          {handOver.losers && Object.keys(handOver.losers).length > 0 && (
+            <div className="loser-details">
+              {Object.entries(handOver.losers).map(([loserId, data]) => (
+                data.penalty > 0 && (
+                  <p key={loserId} className="result-detail">
+                    {nicknames[loserId]}: -{data.penalty} chips ({data.cards.length} cards left)
+                  </p>
+                )
+              ))}
+            </div>
           )}
           <div className={`chip-change ${handOver.winner === myId ? 'positive' : 'negative'}`}>
-            {handOver.winner === myId ? '+' : '-'}
-            {handOver.pot + handOver.penalty} chips
+            {handOver.winner === myId ? '+' : ''}
+            {handOver.winner === myId
+              ? handOver.pot + Object.values(handOver.losers || {}).reduce((sum, l) => sum + l.penalty, 0)
+              : -(handOver.losers?.[myId]?.penalty || 0)} chips
           </div>
           <button className="btn btn-primary" onClick={handleNewHand} disabled={waitingNext}>
             {waitingNext ? 'Waiting...' : 'Next Hand'}
@@ -203,10 +211,9 @@ export default function Game({ socket, gameState, setGameState, nicknames, myId,
         </div>
       )}
 
-      {/* Disconnected overlay */}
       {disconnected && (
         <div className="disconnected-overlay">
-          <h2>Opponent Left</h2>
+          <h2>Player Disconnected</h2>
           <p>The game has ended.</p>
           <button className="btn btn-primary" onClick={() => window.location.reload()}>
             Back to Lobby

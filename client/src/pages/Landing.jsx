@@ -90,15 +90,19 @@ function DealingTable() {
       cards[i].style.transform = toTransform(pose);
     };
     const handIndex = (k) => k * SEATS.length;
+    const setLive = () => {
+      for (let k = 0; k < PER_SEAT; k++) cards[handIndex(k)].classList.add('lp-live');
+    };
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       for (let i = 0; i < DEAL_COUNT; i++) place(i, seatPose(i));
       for (let k = 0; k < PER_SEAT; k++) place(handIndex(k), revealPose(k));
+      setLive();
       return undefined;
     }
 
     let cancelled = false;
-    let running = [];
+    const running = [];
 
     const move = (i, to, options, arc = false) => {
       const from = poses[i];
@@ -113,37 +117,29 @@ function DealingTable() {
       });
     };
 
-    const loop = async () => {
+    const deal = async () => {
       for (let i = 0; i < DEAL_COUNT; i++) place(i, deckPose(i));
       await wait(700);
-      while (!cancelled) {
-        const deals = [];
-        for (let n = 0; n < DEAL_COUNT; n++) {
-          const i = DEAL_COUNT - 1 - n;
-          deals.push(move(i, seatPose(i), { duration: 480, delay: n * 48, easing: 'cubic-bezier(.2,.7,.2,1)' }, true));
-        }
-        await Promise.all(deals);
-        if (cancelled) return;
-        await wait(350);
+      if (cancelled) return;
 
-        await Promise.all(Array.from({ length: PER_SEAT }, (_, k) => (
-          move(handIndex(k), revealPose(k), { duration: 700, delay: k * 40, easing: 'cubic-bezier(.3,1.3,.5,1)' })
-        )));
-        if (cancelled) return;
-        await wait(2600);
-
-        await Promise.all(Array.from({ length: DEAL_COUNT }, (_, i) => (
-          move(i, deckPose(i), { duration: 650, delay: (DEAL_COUNT - i) * 8, easing: 'cubic-bezier(.6,0,.3,1)' })
-        )));
-        running.forEach((a) => a.cancel());
-        running = [];
-        if (cancelled) return;
-        for (let i = 0; i < DEAL_COUNT; i++) place(i, deckPose(i));
-        await wait(900);
+      const deals = [];
+      for (let n = 0; n < DEAL_COUNT; n++) {
+        const i = DEAL_COUNT - 1 - n;
+        deals.push(move(i, seatPose(i), { duration: 620, delay: n * 76, easing: 'cubic-bezier(.2,.7,.2,1)' }, true));
       }
+      await Promise.all(deals);
+      if (cancelled) return;
+      await wait(350);
+
+      await Promise.all(Array.from({ length: PER_SEAT }, (_, k) => (
+        move(handIndex(k), revealPose(k), { duration: 700, delay: k * 40, easing: 'cubic-bezier(.3,1.3,.5,1)' })
+      )));
+      if (cancelled) return;
+      running.forEach((a) => a.cancel());
+      setLive();
     };
 
-    loop();
+    deal();
     return () => {
       cancelled = true;
       running.forEach((a) => a.cancel());
@@ -158,10 +154,12 @@ function DealingTable() {
           const handCard = i % SEATS.length === 0 ? HAND[i / SEATS.length] : null;
           return (
             <div key={i} className="lp-card" ref={(el) => { cardRefs.current[i] = el; }}>
-              <span className="lp-back" />
-              {handCard
-                ? <PlayingCard {...handCard} className="lp-front" />
-                : <span className="lp-face lp-front lp-blank" />}
+              <div className="lp-card-inner">
+                <span className="lp-back" />
+                {handCard
+                  ? <PlayingCard {...handCard} className="lp-front" />
+                  : <span className="lp-face lp-front lp-blank" />}
+              </div>
             </div>
           );
         })}

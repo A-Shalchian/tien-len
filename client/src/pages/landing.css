@@ -72,6 +72,22 @@
   will-change: transform;
 }
 
+.lp-card-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.lp-card.lp-live {
+  pointer-events: auto;
+  cursor: default;
+}
+
+.lp-card.lp-live:hover .lp-card-inner {
+  transform: translate3d(0, -22px, -24px) scale(1.2);
+}
+
 .lp-back,
 .lp-card .lp-face {
   position: absolute;

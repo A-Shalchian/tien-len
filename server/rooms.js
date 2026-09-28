@@ -2,6 +2,11 @@ import { createGame, dealHand } from './game/engine.js';
 import { createBotId, pickBotName } from './game/bot.js';
 
 const rooms = new Map();
+const socketToRoom = new Map();
+
+function sanitizeNickname(name) {
+  return name.replace(/[<>&"'/]/g, '').trim().slice(0, 12) || 'Player';
+}
 
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -16,10 +21,12 @@ function createRoom(hostSocketId, nickname, ante = 10, maxPlayers = 4, fillWithB
   let code = generateCode();
   while (rooms.has(code)) code = generateCode();
 
+  const safeName = sanitizeNickname(nickname);
+
   rooms.set(code, {
     code,
     host: hostSocketId,
-    players: [{ id: hostSocketId, nickname, isBot: false }],
+    players: [{ id: hostSocketId, nickname: safeName, isBot: false }],
     game: null,
     ante,
     maxPlayers: Math.min(Math.max(maxPlayers, 2), 4),
@@ -27,16 +34,23 @@ function createRoom(hostSocketId, nickname, ante = 10, maxPlayers = 4, fillWithB
     readyForNext: new Set(),
   });
 
+  socketToRoom.set(hostSocketId, code);
   return code;
 }
 
 function joinRoom(code, socketId, nickname) {
   const room = rooms.get(code);
   if (!room) return { error: 'Room not found' };
-  if (room.players.filter(p => !p.isBot).length >= room.maxPlayers) return { error: 'Room is full' };
+  if (room.game) return { error: 'Game already in progress' };
   if (room.players.some(p => p.id === socketId)) return { error: 'Already in room' };
 
-  room.players.push({ id: socketId, nickname, isBot: false });
+  const currentHumans = room.players.filter(p => !p.isBot).length;
+  const openSlots = room.maxPlayers - room.players.length;
+  if (openSlots <= 0 || (!room.fillWithBots && currentHumans >= room.maxPlayers)) return { error: 'Room is full' };
+
+  const safeName = sanitizeNickname(nickname);
+  room.players.push({ id: socketId, nickname: safeName, isBot: false });
+  socketToRoom.set(socketId, code);
 
   const humanCount = room.players.filter(p => !p.isBot).length;
   const shouldStart = humanCount >= room.maxPlayers ||
@@ -88,12 +102,9 @@ function startGame(room) {
 }
 
 function getRoomBySocket(socketId) {
-  for (const [code, room] of rooms) {
-    if (room.players.some(p => p.id === socketId)) {
-      return room;
-    }
-  }
-  return null;
+  const code = socketToRoom.get(socketId);
+  if (!code) return null;
+  return rooms.get(code) || null;
 }
 
 function getNicknames(room) {
@@ -120,16 +131,40 @@ function removePlayer(socketId) {
   const room = getRoomBySocket(socketId);
   if (!room) return null;
 
+  socketToRoom.delete(socketId);
+
   const remainingHumans = room.players.filter(p => p.id !== socketId && !p.isBot);
   if (remainingHumans.length === 0) {
+    for (const p of room.players) socketToRoom.delete(p.id);
     rooms.delete(room.code);
     return room;
   }
 
-  room.players = room.players.filter(p => p.id !== socketId);
   if (room.host === socketId) {
     room.host = remainingHumans[0].id;
   }
+
+  if (room.game) {
+    let nextTurnId = null;
+    if (room.game.turn === socketId) {
+      const idx = room.game.players.indexOf(socketId);
+      const remaining = room.game.players.filter(p => p !== socketId);
+      if (remaining.length > 0) {
+        nextTurnId = remaining[idx % remaining.length];
+      }
+    }
+
+    room.game.players = room.game.players.filter(p => p !== socketId);
+    room.game.passedPlayers.delete(socketId);
+    delete room.game.hands[socketId];
+    delete room.game.balances[socketId];
+
+    if (nextTurnId) {
+      room.game.turn = nextTurnId;
+    }
+  }
+
+  room.players = room.players.filter(p => p.id !== socketId);
 
   return room;
 }
@@ -163,6 +198,8 @@ function checkAndRemoveBrokePlayers(room) {
 }
 
 function requestNewHand(room, socketId) {
+  if (!room.game || !room.game.previousWinner) return null;
+
   room.readyForNext.add(socketId);
 
   for (const bot of getBots(room)) {

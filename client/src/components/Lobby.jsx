@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 
 const BET_OPTIONS = [10, 25, 50, 100, 250, 500];
 
-export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, onGameState, error, setError }) {
+export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, onRoomJoined, onLeaveRoom, onGameStart, onGameState, error, setError }) {
   const [nickname, setNickname] = useState('');
-  const [joinCode, setJoinCode] = useState('');
+  const [joinCode, setJoinCode] = useState(urlRoomCode || '');
   const [ante, setAnte] = useState(10);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [fillWithBots, setFillWithBots] = useState(false);
@@ -34,7 +34,15 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
       setError(error);
     };
 
-    const handlePlayerJoined = ({ nicknames }) => {
+    const handlePlayerJoined = ({ nicknames, playerCount, maxPlayers, roomCode: joinedCode }) => {
+      setLobbyPlayers(Object.values(nicknames));
+      if (!roomCode && joinedCode) {
+        onRoomJoined(joinedCode);
+        setWaiting(true);
+      }
+    };
+
+    const handlePlayerLeft = ({ nicknames, playerCount }) => {
       setLobbyPlayers(Object.values(nicknames));
     };
 
@@ -54,6 +62,7 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
     socket.on('player-joined', handlePlayerJoined);
     socket.on('match-queued', handleMatchQueued);
     socket.on('match-cancelled', handleMatchCancelled);
+    socket.on('player-left', handlePlayerLeft);
 
     return () => {
       socket.off('room-created', handleRoomCreated);
@@ -63,8 +72,9 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
       socket.off('player-joined', handlePlayerJoined);
       socket.off('match-queued', handleMatchQueued);
       socket.off('match-cancelled', handleMatchCancelled);
+      socket.off('player-left', handlePlayerLeft);
     };
-  }, [socket, onRoomCreated, onGameStart, onGameState, setError]);
+  }, [socket, roomCode, onRoomCreated, onRoomJoined, onGameStart, onGameState, setError]);
 
   const handleCreate = () => {
     if (!nickname.trim()) return;
@@ -254,6 +264,9 @@ export default function Lobby({ socket, roomCode, onRoomCreated, onGameStart, on
                 Start with Bots
               </button>
             )}
+            <button onClick={onLeaveRoom} className="btn btn-secondary" style={{ marginTop: 8 }}>
+              Back
+            </button>
           </div>
         )}
 

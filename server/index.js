@@ -28,6 +28,35 @@ const io = new Server(httpServer, {
   },
 });
 
+function broadcastHandOver(room, result) {
+  const nicknames = getNicknames(room);
+  if (result.bombPenalty) {
+    const bp = result.bombPenalty;
+    for (const p of room.players) {
+      if (p.isBot) continue;
+      io.to(p.id).emit('bomb-penalty', {
+        victim: bp.victim,
+        victimNickname: nicknames[bp.victim],
+        bomber: bp.bomber,
+        bomberNickname: nicknames[bp.bomber],
+        penalty: bp.penalty,
+      });
+    }
+  }
+  for (const p of room.players) {
+    if (p.isBot) continue;
+    io.to(p.id).emit('hand-over', {
+      winner: result.winner,
+      winnerNickname: nicknames[result.winner],
+      losers: result.losers,
+      pot: result.pot,
+      balances: result.balances,
+      eliminated: result.eliminated || [],
+      gameOver: result.gameOver || false,
+    });
+  }
+}
+
 function broadcastGameStart(room, dealResult) {
   const nicknames = getNicknames(room);
   const bots = getBotFlags(room);
@@ -136,38 +165,29 @@ function executeBotTurn(room, botId) {
     return;
   }
 
-  if (!play) return;
+  if (!play) {
+    if (!tableCombo && hand.length > 0) {
+      const cardIds = [hand[0].id];
+      const result = playCards(room.game, botId, cardIds);
+      if (result.error) return;
+
+      if (result.type === 'hand-over') {
+        broadcastHandOver(room, result);
+        return;
+      }
+
+      broadcastState(room, result);
+      scheduleBotIfNeeded(room);
+    }
+    return;
+  }
 
   const cardIds = play.cards.map(c => c.id);
   const result = playCards(room.game, botId, cardIds);
   if (result.error) return;
 
-  const nicknames = getNicknames(room);
-
   if (result.type === 'hand-over') {
-    if (result.bombPenalty) {
-      const bp = result.bombPenalty;
-      for (const p of room.players) {
-        if (p.isBot) continue;
-        io.to(p.id).emit('bomb-penalty', {
-          victim: bp.victim,
-          victimNickname: nicknames[bp.victim],
-          bomber: bp.bomber,
-          bomberNickname: nicknames[bp.bomber],
-          penalty: bp.penalty,
-        });
-      }
-    }
-    for (const p of room.players) {
-      if (p.isBot) continue;
-      io.to(p.id).emit('hand-over', {
-        winner: result.winner,
-        winnerNickname: nicknames[result.winner],
-        losers: result.losers,
-        pot: result.pot,
-        balances: result.balances,
-      });
-    }
+    broadcastHandOver(room, result);
     return;
   }
 
@@ -206,6 +226,7 @@ io.on('connection', (socket) => {
           bots,
           playerCount: result.room.players.length,
           maxPlayers: result.room.maxPlayers,
+          roomCode: code,
         });
       }
       return;
@@ -239,32 +260,8 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const nicknames = getNicknames(room);
-
     if (result.type === 'hand-over') {
-      if (result.bombPenalty) {
-        const bp = result.bombPenalty;
-        for (const p of room.players) {
-          if (p.isBot) continue;
-          io.to(p.id).emit('bomb-penalty', {
-            victim: bp.victim,
-            victimNickname: nicknames[bp.victim],
-            bomber: bp.bomber,
-            bomberNickname: nicknames[bp.bomber],
-            penalty: bp.penalty,
-          });
-        }
-      }
-      for (const p of room.players) {
-        if (p.isBot) continue;
-        io.to(p.id).emit('hand-over', {
-          winner: result.winner,
-          winnerNickname: nicknames[result.winner],
-          losers: result.losers,
-          pot: result.pot,
-          balances: result.balances,
-        });
-      }
+      broadcastHandOver(room, result);
       return;
     }
 
@@ -357,6 +354,23 @@ io.on('connection', (socket) => {
     socket.emit('match-cancelled');
   });
 
+  socket.on('leave-room', () => {
+    const room = removePlayer(socket.id);
+    if (room) {
+      socket.leave(room.code);
+      for (const p of room.players) {
+        if (p.id !== socket.id && !p.isBot) {
+          io.to(p.id).emit('player-left', {
+            playerId: socket.id,
+            nicknames: getNicknames(room),
+            playerCount: room.players.length,
+          });
+        }
+      }
+      console.log(`Player left room ${room.code}`);
+    }
+  });
+
   socket.on('emote', ({ emoteId }) => {
     const room = getRoomBySocket(socket.id);
     if (!room) return;
@@ -372,11 +386,19 @@ io.on('connection', (socket) => {
     leaveMatchmaking(socket.id);
     const room = removePlayer(socket.id);
     if (room) {
-      for (const p of room.players) {
-        if (p.id !== socket.id && !p.isBot) {
-          io.to(p.id).emit('player-disconnected', { playerId: socket.id });
+      const remainingHumans = room.players.filter(p => !p.isBot);
+
+      if (remainingHumans.length === 0) {
+        console.log(`Room ${room.code} deleted — no humans left`);
+      } else {
+        for (const p of room.players) {
+          if (p.id !== socket.id && !p.isBot) {
+            io.to(p.id).emit('player-disconnected', { playerId: socket.id });
+          }
         }
+        scheduleBotIfNeeded(room);
       }
+
       console.log(`Player disconnected from room ${room.code}`);
     }
     console.log(`Disconnected: ${socket.id}`);

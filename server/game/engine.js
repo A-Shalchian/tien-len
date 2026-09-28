@@ -277,12 +277,16 @@ function resolveWin(game, winnerId) {
   game.balances[winnerId] += pot + totalPenalty;
   game.previousWinner = winnerId;
 
+  const eliminatedPlayers = game.players.filter(p => game.balances[p] <= 0 && p !== winnerId);
+
   return {
     type: 'hand-over',
     winner: winnerId,
     losers: loserData,
     pot,
     balances: { ...game.balances },
+    eliminated: eliminatedPlayers,
+    gameOver: eliminatedPlayers.length > 0,
   };
 }
 

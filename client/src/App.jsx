@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from './hooks/useSocket.js';
 import Lobby from './components/Lobby.jsx';
 import Game from './components/Game.jsx';
+
+function getRoomCodeFromURL() {
+  const match = window.location.pathname.match(/^\/room\/([A-Z0-9]{4})$/i);
+  return match ? match[1].toUpperCase() : null;
+}
 
 export default function App() {
   const socket = useSocket();
@@ -12,12 +17,51 @@ export default function App() {
   const [myId, setMyId] = useState(null);
   const [playerOrder, setPlayerOrder] = useState([]);
   const [error, setError] = useState(null);
+  const [urlRoomCode] = useState(() => getRoomCodeFromURL());
 
-  const handleRoomCreated = (code) => {
+  const resetToLobby = useCallback(() => {
+    setRoomCode(null);
+    setGameState(null);
+    setNicknames({});
+    setBotFlags({});
+    setPlayerOrder([]);
+    setMyId(null);
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const codeFromURL = getRoomCodeFromURL();
+      if (!codeFromURL) {
+        socket.emit('leave-room');
+        resetToLobby();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [socket, resetToLobby]);
+
+  const handleRoomCreated = useCallback((code) => {
     setRoomCode(code);
-  };
+    history.pushState({ roomCode: code }, '', `/room/${code}`);
+  }, []);
 
-  const handleGameStart = (data) => {
+  const handleRoomJoined = useCallback((code) => {
+    setRoomCode(code);
+    const current = getRoomCodeFromURL();
+    if (current !== code) {
+      history.pushState({ roomCode: code }, '', `/room/${code}`);
+    }
+  }, []);
+
+  const handleLeaveRoom = useCallback(() => {
+    socket.emit('leave-room');
+    resetToLobby();
+    history.pushState({}, '', '/');
+  }, [socket, resetToLobby]);
+
+  const handleGameStart = useCallback((data) => {
     setMyId(data.you);
     setNicknames(data.nicknames);
     setBotFlags(data.bots || {});
@@ -32,9 +76,9 @@ export default function App() {
       passedPlayers: [],
     });
     setError(null);
-  };
+  }, []);
 
-  const handleGameState = (data) => {
+  const handleGameState = useCallback((data) => {
     setGameState((prev) => ({
       ...prev,
       hand: data.hand,
@@ -49,14 +93,17 @@ export default function App() {
     }));
     if (data.nicknames) setNicknames(data.nicknames);
     if (data.bots) setBotFlags(data.bots);
-  };
+  }, []);
 
   if (!gameState) {
     return (
       <Lobby
         socket={socket}
         roomCode={roomCode}
+        urlRoomCode={urlRoomCode}
         onRoomCreated={handleRoomCreated}
+        onRoomJoined={handleRoomJoined}
+        onLeaveRoom={handleLeaveRoom}
         onGameStart={handleGameStart}
         onGameState={handleGameState}
         error={error}

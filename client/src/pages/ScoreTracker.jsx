@@ -62,7 +62,7 @@ function SessionList({ onOpen }) {
     <>
       <header className="st-header">
         <h1 className="st-title">Score tracker</h1>
-        <a className="st-link" href="/">Play online</a>
+        <a className="st-link" href="/">Home</a>
       </header>
 
       {creating

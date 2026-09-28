@@ -3,6 +3,7 @@ import { useSocket } from './hooks/useSocket.js';
 import Lobby from './components/Lobby.jsx';
 import Game from './components/Game.jsx';
 import ScoreTracker from './pages/ScoreTracker.jsx';
+import Landing from './pages/Landing.jsx';
 
 function getRoomCodeFromURL() {
   const match = window.location.pathname.match(/^\/room\/([A-Z0-9]{4})$/i);
@@ -10,8 +11,12 @@ function getRoomCodeFromURL() {
 }
 
 export default function App() {
-  if (window.location.pathname.startsWith('/scores')) {
+  const path = window.location.pathname;
+  if (path.startsWith('/scores')) {
     return <ScoreTracker />;
+  }
+  if (path === '/' || path === '') {
+    return <Landing />;
   }
   return <GameApp />;
 }
@@ -66,7 +71,7 @@ function GameApp() {
   const handleLeaveRoom = useCallback(() => {
     socket.emit('leave-room');
     resetToLobby();
-    history.pushState({}, '', '/');
+    history.pushState({}, '', '/play');
   }, [socket, resetToLobby]);
 
   const handleGameStart = useCallback((data) => {

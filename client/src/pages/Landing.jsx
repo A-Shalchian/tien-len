@@ -137,6 +137,7 @@ function DealingTable() {
   const onPointerDown = (e) => {
     const card = e.currentTarget;
     if (!card.classList.contains('lp-live')) return;
+    e.preventDefault();
     const inner = card.firstChild;
     inner.style.transition = 'none';
     inner.style.transform = 'none';
@@ -170,6 +171,7 @@ function DealingTable() {
   const onPointerMove = (e) => {
     const d = drag.current;
     if (!d) return;
+    e.preventDefault();
     const dx = e.clientX - d.startX;
     const dy = e.clientY - d.startY;
     const lx = d.inv[0] * dx + d.inv[1] * dy;
@@ -184,9 +186,14 @@ function DealingTable() {
     if (!d) return;
     drag.current = null;
     e.currentTarget.classList.remove('lp-dragging');
-    d.inner.style.transition = 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    const from = d.inner.style.transform;
+    const back = d.inner.animate([
+      { transform: from },
+      { transform: 'translate3d(0, -10px, -40px)', offset: 0.7 },
+      { transform: 'translate3d(0, 0, 0)' },
+    ], { duration: 520, easing: 'cubic-bezier(0.25, 0.9, 0.3, 1)' });
     d.inner.style.transform = '';
-    d.inner.addEventListener('transitionend', () => { d.inner.style.transition = ''; }, { once: true });
+    back.finished.then(() => { d.inner.style.transition = ''; });
   };
 
   return (

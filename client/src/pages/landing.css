@@ -83,10 +83,12 @@
   pointer-events: auto;
   cursor: grab;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .lp-card.lp-live:hover .lp-card-inner {
-  transform: translate3d(0, -10px, -4px);
+  transform: translate3d(0, -10px, 0);
 }
 
 .lp-card.lp-dragging {

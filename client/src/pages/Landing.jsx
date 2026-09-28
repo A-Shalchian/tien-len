@@ -54,17 +54,6 @@ function toTransform({ x, y, z, rz, rx, ry }) {
   return `translate3d(${x}px, ${y}px, ${z}px) rotateX(${rx}deg) rotateZ(${rz}deg) rotateY(${ry}deg)`;
 }
 
-function midPose(from, to) {
-  return {
-    x: (from.x + to.x) / 2,
-    y: (from.y + to.y) / 2,
-    z: 90,
-    rz: (from.rz + to.rz) / 2 + 160,
-    rx: (from.rx + to.rx) / 2,
-    ry: (from.ry + to.ry) / 2,
-  };
-}
-
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -104,11 +93,8 @@ function DealingTable() {
     let cancelled = false;
     const running = [];
 
-    const move = (i, to, options, arc = false) => {
-      const from = poses[i];
-      const frames = arc
-        ? [{ transform: toTransform(from) }, { transform: toTransform(midPose(from, to)), offset: 0.45 }, { transform: toTransform(to) }]
-        : [{ transform: toTransform(from) }, { transform: toTransform(to) }];
+    const move = (i, to, options) => {
+      const frames = [{ transform: toTransform(poses[i]) }, { transform: toTransform(to) }];
       const animation = cards[i].animate(frames, { fill: 'forwards', ...options });
       running.push(animation);
       poses[i] = to;
@@ -125,7 +111,7 @@ function DealingTable() {
       const deals = [];
       for (let n = 0; n < DEAL_COUNT; n++) {
         const i = DEAL_COUNT - 1 - n;
-        deals.push(move(i, seatPose(i), { duration: 620, delay: n * 76, easing: 'cubic-bezier(.2,.7,.2,1)' }, true));
+        deals.push(move(i, seatPose(i), { duration: 520, delay: n * 76, easing: 'cubic-bezier(.22,.8,.3,1)' }));
       }
       await Promise.all(deals);
       if (cancelled) return;
@@ -146,6 +132,63 @@ function DealingTable() {
     };
   }, []);
 
+  const drag = useRef(null);
+
+  const onPointerDown = (e) => {
+    const card = e.currentTarget;
+    if (!card.classList.contains('lp-live')) return;
+    const inner = card.firstChild;
+    inner.style.transition = 'none';
+    inner.style.transform = 'none';
+    const center = () => {
+      const r = inner.getBoundingClientRect();
+      return [(r.left + r.right) / 2, (r.top + r.bottom) / 2];
+    };
+    const [bx, by] = center();
+    inner.style.transform = 'translate3d(100px, 0, 0)';
+    const [xx, xy] = center();
+    inner.style.transform = 'translate3d(0, 100px, 0)';
+    const [yx, yy] = center();
+    const a = (xx - bx) / 100;
+    const c = (xy - by) / 100;
+    const b = (yx - bx) / 100;
+    const d = (yy - by) / 100;
+    const det = a * d - b * c || 1;
+    drag.current = {
+      inner,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      tilt: 0,
+      inv: [d / det, -b / det, -c / det, a / det],
+    };
+    inner.style.transform = 'translate3d(0, 0, -40px)';
+    card.classList.add('lp-dragging');
+    card.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    const lx = d.inv[0] * dx + d.inv[1] * dy;
+    const ly = d.inv[2] * dx + d.inv[3] * dy;
+    d.tilt = Math.max(-16, Math.min(16, d.tilt * 0.8 + (e.clientX - d.lastX) * 0.9));
+    d.lastX = e.clientX;
+    d.inner.style.transform = `translate3d(${lx}px, ${ly}px, -40px) rotateZ(${d.tilt}deg)`;
+  };
+
+  const onPointerUp = (e) => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    e.currentTarget.classList.remove('lp-dragging');
+    d.inner.style.transition = 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    d.inner.style.transform = '';
+    d.inner.addEventListener('transitionend', () => { d.inner.style.transition = ''; }, { once: true });
+  };
+
   return (
     <div className="lp-stage" aria-hidden="true">
       <div className="lp-table">
@@ -153,7 +196,15 @@ function DealingTable() {
         {Array.from({ length: DEAL_COUNT }, (_, i) => {
           const handCard = i % SEATS.length === 0 ? HAND[i / SEATS.length] : null;
           return (
-            <div key={i} className="lp-card" ref={(el) => { cardRefs.current[i] = el; }}>
+            <div
+              key={i}
+              className="lp-card"
+              ref={(el) => { cardRefs.current[i] = el; }}
+              onPointerDown={handCard ? onPointerDown : undefined}
+              onPointerMove={handCard ? onPointerMove : undefined}
+              onPointerUp={handCard ? onPointerUp : undefined}
+              onPointerCancel={handCard ? onPointerUp : undefined}
+            >
               <div className="lp-card-inner">
                 <span className="lp-back" />
                 {handCard

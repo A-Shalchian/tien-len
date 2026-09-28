@@ -76,16 +76,21 @@
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.22s ease-out;
 }
 
 .lp-card.lp-live {
   pointer-events: auto;
-  cursor: default;
+  cursor: grab;
+  touch-action: none;
 }
 
 .lp-card.lp-live:hover .lp-card-inner {
-  transform: translate3d(0, -22px, -24px) scale(1.2);
+  transform: translate3d(0, -10px, -4px);
+}
+
+.lp-card.lp-dragging {
+  cursor: grabbing;
 }
 
 .lp-back,

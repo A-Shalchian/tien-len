@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from './hooks/useSocket.js';
 import Lobby from './components/Lobby.jsx';
 import Game from './components/Game.jsx';
+import ScoreTracker from './pages/ScoreTracker.jsx';
 
 function getRoomCodeFromURL() {
   const match = window.location.pathname.match(/^\/room\/([A-Z0-9]{4})$/i);
@@ -9,6 +10,13 @@ function getRoomCodeFromURL() {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith('/scores')) {
+    return <ScoreTracker />;
+  }
+  return <GameApp />;
+}
+
+function GameApp() {
   const socket = useSocket();
   const [gameState, setGameState] = useState(null);
   const [roomCode, setRoomCode] = useState(null);

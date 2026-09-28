@@ -6,5 +6,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true, // expose on local network for phone testing
+    proxy: {
+      '/api': 'http://localhost:3001',
+    },
   },
 });

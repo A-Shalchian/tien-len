@@ -9,6 +9,7 @@ import {
 } from './rooms.js';
 import { playCards, pass, getGameState, resolveInstantWin } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
+import scoresRouter from './scores.js';
 
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -19,6 +20,7 @@ const clientDist = path.join(__dirname, '..', 'client', 'dist');
 const app = express();
 app.use(cors());
 app.use(express.static(clientDist));
+app.use('/api', scoresRouter);
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {

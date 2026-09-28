@@ -10,31 +10,28 @@ const SEATS = [
   { x: 0, y: -175, r: 180 },
   { x: -215, y: 0, r: -90 },
 ];
-const PER_SEAT = 5;
+const PER_SEAT = 13;
 const DEAL_COUNT = SEATS.length * PER_SEAT;
 const HAND = [
-  { rank: '3', suit: '♠' },
-  { rank: '4', suit: '♠' },
-  { rank: '5', suit: '♦' },
-  { rank: '6', suit: '♣' },
-  { rank: '7', suit: '♥' },
-];
+  ['3', '♠'], ['4', '♠'], ['5', '♦'], ['6', '♣'], ['7', '♥'], ['8', '♠'], ['9', '♦'],
+  ['9', '♥'], ['J', '♣'], ['Q', '♦'], ['K', '♠'], ['A', '♥'], ['2', '♥'],
+].map(([rank, suit]) => ({ rank, suit }));
 
 const RED_SUITS = new Set(['♦', '♥']);
 
 function deckPose(i) {
-  return { x: 0, y: 0, z: i * 0.6, rz: (i % 3) - 1, rx: 0, ry: 0 };
+  return { x: 0, y: 0, z: i * 0.35, rz: (i % 3) - 1, rx: 0, ry: 0 };
 }
 
 function seatPose(i) {
   const seat = SEATS[i % SEATS.length];
   const k = Math.floor(i / SEATS.length);
-  const spread = (k - (PER_SEAT - 1) / 2) * 20;
+  const spread = (k - (PER_SEAT - 1) / 2) * 9;
   const rad = (seat.r * Math.PI) / 180;
   return {
     x: seat.x + spread * Math.cos(rad),
     y: seat.y + spread * Math.sin(rad),
-    z: k * 0.6,
+    z: k * 0.5,
     rz: seat.r + ((i * 7) % 5) - 2,
     rx: 0,
     ry: 0,
@@ -44,10 +41,10 @@ function seatPose(i) {
 function revealPose(k) {
   const offset = k - (PER_SEAT - 1) / 2;
   return {
-    x: offset * 46,
-    y: 150 + Math.abs(offset) * 6,
-    z: 80,
-    rz: offset * 7,
+    x: offset * 25,
+    y: 150 + k * 2,
+    z: 72 + k * 2,
+    rz: offset * 4.5,
     rx: -58,
     ry: 180,
   };
@@ -123,20 +120,20 @@ function DealingTable() {
         const deals = [];
         for (let n = 0; n < DEAL_COUNT; n++) {
           const i = DEAL_COUNT - 1 - n;
-          deals.push(move(i, seatPose(i), { duration: 560, delay: n * 105, easing: 'cubic-bezier(.2,.7,.2,1)' }, true));
+          deals.push(move(i, seatPose(i), { duration: 480, delay: n * 48, easing: 'cubic-bezier(.2,.7,.2,1)' }, true));
         }
         await Promise.all(deals);
         if (cancelled) return;
         await wait(350);
 
         await Promise.all(Array.from({ length: PER_SEAT }, (_, k) => (
-          move(handIndex(k), revealPose(k), { duration: 750, delay: k * 70, easing: 'cubic-bezier(.3,1.3,.5,1)' })
+          move(handIndex(k), revealPose(k), { duration: 700, delay: k * 40, easing: 'cubic-bezier(.3,1.3,.5,1)' })
         )));
         if (cancelled) return;
         await wait(2600);
 
         await Promise.all(Array.from({ length: DEAL_COUNT }, (_, i) => (
-          move(i, deckPose(i), { duration: 650, delay: (DEAL_COUNT - i) * 18, easing: 'cubic-bezier(.6,0,.3,1)' })
+          move(i, deckPose(i), { duration: 650, delay: (DEAL_COUNT - i) * 8, easing: 'cubic-bezier(.6,0,.3,1)' })
         )));
         running.forEach((a) => a.cancel());
         running = [];

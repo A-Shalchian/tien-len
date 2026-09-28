@@ -333,6 +333,10 @@
   margin-left: auto;
 }
 
+.st-check-left {
+  margin-left: 0;
+}
+
 .st-chop-row {
   display: flex;
   align-items: center;

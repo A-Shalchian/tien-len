@@ -20,6 +20,7 @@ const DEFAULT_PENALTIES = {
   stuckRed: 2,
   cong: 1,
   instantWin: 3,
+  threeSpadeWin: 2,
 };
 
 let sessions = load();
@@ -86,6 +87,7 @@ function validateGame(session, body) {
 
   const stuckTwos = {};
   let stuckLast = null;
+  const threeSpadeWin = !instantWin && !session.rules.stuckTwo && Boolean(body.threeSpadeWin);
   const cong = [];
   const chops = [];
   const legacy = session.rules.stuckTwo !== undefined;
@@ -132,6 +134,7 @@ function validateGame(session, body) {
       instantWin,
       stuckTwos,
       stuckLast,
+      threeSpadeWin,
       cong,
       chops,
     },

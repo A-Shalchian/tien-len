@@ -11,6 +11,7 @@ export const DEFAULT_PENALTIES = {
   stuckRed: 2,
   cong: 1,
   instantWin: 3,
+  threeSpadeWin: 2,
 };
 
 export function isLegacyRules(rules) {
@@ -49,6 +50,9 @@ export function gameDeltas(game, players, rules) {
   game.order.forEach((p, i) => {
     deltas[p] += rules.place[i] ?? 0;
   });
+  if (!legacy && game.threeSpadeWin) {
+    deltas[winner] += rules.threeSpadeWin ?? DEFAULT_PENALTIES.threeSpadeWin;
+  }
   if (!legacy && game.stuckLast && game.order.length > 1) {
     const last = game.order[game.order.length - 1];
     const above = game.order[game.order.length - 2];
@@ -140,7 +144,7 @@ export function rulesSummary(rules) {
   }
   const stuckBlack = rules.stuckBlack ?? DEFAULT_PENALTIES.stuckBlack;
   const stuckRed = rules.stuckRed ?? DEFAULT_PENALTIES.stuckRed;
-  return `${place} · chop black 2 ±${rules.chopBlack} · chop red 2 ±${rules.chopRed} · 2s left black ±${stuckBlack} red ±${stuckRed} · cóng -${rules.cong} · instant win +${rules.instantWin}`;
+  return `${place} · chop black 2 ±${rules.chopBlack} · chop red 2 ±${rules.chopRed} · 2s left black ±${stuckBlack} red ±${stuckRed} · 3♠ win +${rules.threeSpadeWin ?? DEFAULT_PENALTIES.threeSpadeWin} · cóng -${rules.cong} · instant win +${rules.instantWin}`;
 }
 
 export function formatDelta(n) {

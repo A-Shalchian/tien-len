@@ -17,6 +17,7 @@ Default points for 3 players:
 | Chopping a red 2 | chopper +2, chopped player -2 |
 | Last place left holding a black 2 | last -1, player above them +1 |
 | Last place left holding a red 2 | last -2, player above them +2 |
+| Winning with 3♠ as the last card | winner +2 bonus |
 | Cóng (never played a card) | -1 |
 | Instant win | winner +3 |
 

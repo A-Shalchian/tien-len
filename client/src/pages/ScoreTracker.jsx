@@ -192,6 +192,7 @@ function NewSessionForm({ onCancel, onCreated }) {
             <PenaltyInput label="Black 2 left" field="stuckBlack" values={penalties} onChange={setPenalties} />
             <PenaltyInput label="Red 2 left" field="stuckRed" values={penalties} onChange={setPenalties} />
             <PenaltyInput label="Cóng (minus)" field="cong" values={penalties} onChange={setPenalties} />
+            <PenaltyInput label="3♠ win bonus" field="threeSpadeWin" values={penalties} onChange={setPenalties} />
             <PenaltyInput label="Instant win" field="instantWin" values={penalties} onChange={setPenalties} />
           </div>
         </div>
@@ -324,6 +325,7 @@ function RecordGame({ session, onSaved }) {
   const [instantWin, setInstantWin] = useState('');
   const [stuckTwos, setStuckTwos] = useState({});
   const [stuckLast, setStuckLast] = useState({ black: 0, red: 0 });
+  const [threeSpadeWin, setThreeSpadeWin] = useState(false);
   const [cong, setCong] = useState([]);
   const [chops, setChops] = useState([]);
   const [error, setError] = useState(null);
@@ -339,6 +341,7 @@ function RecordGame({ session, onSaved }) {
     order: instantWin ? [] : fullOrder,
     instantWin: instantWin || null,
     stuckTwos: instantWin ? {} : Object.fromEntries(Object.entries(stuckTwos).filter(([p, n]) => n > 0 && p !== winner)),
+    threeSpadeWin: !instantWin && !legacy && threeSpadeWin,
     stuckLast: instantWin || legacy || stuckLast.black + stuckLast.red === 0 ? null : stuckLast,
     cong: instantWin ? [] : cong.filter((p) => p !== winner),
     chops: instantWin ? [] : chops.filter((c) => c.by && c.victim && c.by !== c.victim && (legacy || c.black + c.red > 0)),
@@ -350,6 +353,7 @@ function RecordGame({ session, onSaved }) {
     setInstantWin('');
     setStuckTwos({});
     setStuckLast({ black: 0, red: 0 });
+    setThreeSpadeWin(false);
     setCong([]);
     setChops([]);
     setError(null);
@@ -410,6 +414,12 @@ function RecordGame({ session, onSaved }) {
 
           {complete && (
             <>
+              {!legacy && (
+                <label className="st-check st-check-left">
+                  <input type="checkbox" checked={threeSpadeWin} onChange={(e) => setThreeSpadeWin(e.target.checked)} />
+                  {winner} won with 3♠ as the last card
+                </label>
+              )}
               <div className="st-label">Penalties</div>
               <div className="st-penalties">
                 {losers.map((p) => (
@@ -507,6 +517,7 @@ function GameRow({ game, number, session, onRemove }) {
   const tags = [];
   if (game.instantWin) tags.push(`Instant win: ${game.instantWin}`);
   for (const [p, n] of Object.entries(game.stuckTwos || {})) tags.push(`${p} stuck with ${n} × 2`);
+  if (game.threeSpadeWin) tags.push(`${game.order[0]} won with 3♠`);
   if (game.stuckLast) tags.push(describeStuckLast(game));
   for (const p of game.cong || []) tags.push(`${p} cóng`);
   for (const c of game.chops || []) tags.push(describeChop(c));

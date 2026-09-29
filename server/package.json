@@ -4,8 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env index.js",
-    "dev": "node --watch --env-file-if-exists=.env index.js",
-    "import-json": "node --env-file-if-exists=.env import-json.js"
+    "dev": "node --watch --env-file-if-exists=.env index.js"
   },
   "dependencies": {
     "better-auth": "^1.7.6",

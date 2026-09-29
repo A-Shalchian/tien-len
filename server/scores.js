@@ -2,7 +2,8 @@ import express from 'express';
 import crypto from 'crypto';
 import { pool, transaction } from './db.js';
 import { getUser } from './auth.js';
-import { getBalance, applyDailyTopUp, leaderboard, chipMovements } from './chips.js';
+import { hasAcceptedTerms } from './profile.js';
+import { chipMovements } from './chips.js';
 import { DEFAULT_PLACE_POINTS, DEFAULT_PENALTIES, gameDeltas } from '../client/src/utils/scoring.js';
 
 const DEFAULT_CHIP_RATE = 10;
@@ -105,8 +106,11 @@ async function loadAccess(sessionId, userId) {
 
 async function loadPlayers(sessionId, db = pool) {
   const { rows } = await db.query(
-    `select p.name, p.user_id, u.name as user_name, u.image
-     from session_players p left join "user" u on u.id = p.user_id
+    `select p.name, p.user_id, coalesce(pr.display_name, u.name) as user_name,
+            case when pr.hide_avatar then null else u.image end as image
+     from session_players p
+     left join "user" u on u.id = p.user_id
+     left join profiles pr on pr.user_id = p.user_id
      where p.session_id = $1 order by p.position`,
     [sessionId],
   );
@@ -124,7 +128,10 @@ async function sessionView(s, userId) {
       `select user_id, sum(amount)::int as amount from chip_ledger where session_id = $1 group by user_id`,
       [s.id],
     ),
-    pool.query(`select name from "user" where id = $1`, [s.leader_id]),
+    pool.query(
+      `select coalesce(pr.display_name, u.name) as name from "user" u left join profiles pr on pr.user_id = u.id where u.id = $1`,
+      [s.leader_id],
+    ),
   ]);
   const chipsByUser = Object.fromEntries(chips.rows.map((r) => [r.user_id, r.amount]));
   const me = players.find((p) => p.user_id === userId);
@@ -140,6 +147,7 @@ async function sessionView(s, userId) {
     players: players.map((p) => p.name),
     links: players.map((p) => ({
       name: p.name,
+      userId: p.user_id,
       userName: p.user_name,
       image: p.image,
       isMe: p.user_id === userId,
@@ -160,22 +168,11 @@ const handle = (fn) => (req, res) => fn(req, res).catch((err) => {
 const requireUser = (fn) => handle(async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: 'Sign in with Google to continue.' });
+  if (!(await hasAcceptedTerms(user.id))) {
+    return res.status(403).json({ error: 'Accept the terms and privacy policy to continue.', needsConsent: true });
+  }
   return fn(req, res, user);
 });
-
-router.get('/me', handle(async (req, res) => {
-  const user = await getUser(req);
-  if (!user) return res.json({ user: null });
-  await applyDailyTopUp(user.id);
-  res.json({
-    user: { id: user.id, name: user.name, email: user.email, image: user.image },
-    balance: await getBalance(user.id),
-  });
-}));
-
-router.get('/leaderboard', handle(async (req, res) => {
-  res.json(await leaderboard(10));
-}));
 
 router.get('/sessions', requireUser(async (req, res, user) => {
   const { rows } = await pool.query(
@@ -279,8 +276,8 @@ router.post('/sessions/:id/games', requireUser(async (req, res, user) => {
   const movements = chipMovements(gameDeltas(game, names, s.rules), players, s.chip_rate);
   await transaction(async (db) => {
     await db.query(
-      `insert into games (id, session_id, data, rules) values ($1, $2, $3, $4)`,
-      [gameId, s.id, game, s.rules],
+      `insert into games (id, session_id, data, rules, recorded_by) values ($1, $2, $3, $4, $5)`,
+      [gameId, s.id, game, s.rules, user.id],
     );
     for (const m of movements) {
       await db.query(
@@ -298,8 +295,8 @@ router.delete('/sessions/:id/games/:gameId', requireUser(async (req, res, user) 
   if (!s.is_leader) return res.status(403).json({ error: 'Only the session leader can undo games.' });
   const found = await transaction(async (db) => {
     const { rowCount } = await db.query(
-      `update games set undone_at = now() where id = $1 and session_id = $2 and undone_at is null`,
-      [req.params.gameId, s.id],
+      `update games set undone_at = now(), undone_by = $3 where id = $1 and session_id = $2 and undone_at is null`,
+      [req.params.gameId, s.id, user.id],
     );
     if (!rowCount) return false;
     await db.query(
@@ -316,9 +313,10 @@ router.delete('/sessions/:id/games/:gameId', requireUser(async (req, res, user) 
 
 router.get('/join/:code', requireUser(async (req, res, user) => {
   const { rows } = await pool.query(
-    `select s.id, s.name, s.leader_id, u.name as leader_name,
+    `select s.id, s.name, s.leader_id, coalesce(pr.display_name, u.name) as leader_name,
             exists (select 1 from session_members m where m.session_id = s.id and m.user_id = $2) as is_member
-     from tracker_sessions s join "user" u on u.id = s.leader_id where s.invite_code = $1`,
+     from tracker_sessions s join "user" u on u.id = s.leader_id left join profiles pr on pr.user_id = u.id
+     where s.invite_code = $1`,
     [req.params.code, user.id],
   );
   const s = rows[0];

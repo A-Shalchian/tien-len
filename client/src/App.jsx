@@ -5,6 +5,8 @@ import Game from './components/Game.jsx';
 import ScoreTracker from './pages/ScoreTracker.jsx';
 import Landing from './pages/Landing.jsx';
 import Privacy from './pages/Privacy.jsx';
+import Terms from './pages/Terms.jsx';
+import Profile from './pages/Profile.jsx';
 
 function getRoomCodeFromURL() {
   const match = window.location.pathname.match(/^\/room\/([A-Z0-9]{4})$/i);
@@ -18,6 +20,16 @@ export default function App() {
   }
   if (path === '/privacy') {
     return <Privacy />;
+  }
+  if (path === '/terms') {
+    return <Terms />;
+  }
+  if (path === '/profile') {
+    return <Profile />;
+  }
+  const profileMatch = path.match(/^\/u\/([A-Za-z0-9_-]+)$/);
+  if (profileMatch) {
+    return <Profile userId={profileMatch[1]} />;
   }
   if (path === '/' || path === '') {
     return <Landing />;

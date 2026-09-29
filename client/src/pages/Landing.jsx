@@ -349,7 +349,9 @@ function Leaderboard() {
           {rows.map((r, i) => (
             <li key={`${r.name}-${i}`} className={i === 0 ? 'lp-board-first' : ''}>
               <span className="lp-board-pos">{i + 1}</span>
-              <span className="lp-board-name">{r.name}</span>
+              <span className="lp-board-name">
+                {r.id ? <a className="lp-board-link" href={`/u/${r.id}`}>{r.name}</a> : r.name}
+              </span>
               <span className="lp-board-stat" />
               <span className="lp-board-pts">{r.balance.toLocaleString()}</span>
             </li>
@@ -372,7 +374,7 @@ function AccountLink() {
     );
   }
   return (
-    <a className="lp-account" href="/scores">
+    <a className="lp-account" href="/profile">
       {me.user.name} · {me.balance.toLocaleString()} chips
     </a>
   );
@@ -404,7 +406,8 @@ export default function Landing() {
       </main>
 
       <footer className="lp-footer">
-        Made for our games with Vy and Thư. <a className="lp-inline-link" href="/privacy">Privacy</a>
+        Made for our games with Vy and Thư. <a className="lp-inline-link" href="/privacy">Privacy</a>{' '}
+        <a className="lp-inline-link" href="/terms">Terms</a>
       </footer>
     </div>
   );

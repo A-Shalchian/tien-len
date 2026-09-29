@@ -18,18 +18,6 @@ export async function applyDailyTopUp(userId) {
   );
 }
 
-export async function leaderboard(limit = 10) {
-  const { rows } = await pool.query(
-    `select u.name, u.image, coalesce(sum(l.amount), 0)::int as balance
-     from "user" u left join chip_ledger l on l.user_id = u.id
-     group by u.id
-     order by balance desc, u.name
-     limit $1`,
-    [limit],
-  );
-  return rows;
-}
-
 export function chipMovements(deltas, players, rate) {
   if (!rate) return [];
   const names = Object.keys(deltas);

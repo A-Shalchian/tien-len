@@ -11,6 +11,7 @@ import { playCards, pass, getGameState, resolveInstantWin } from './game/engine.
 import { findBotPlay } from './game/bot.js';
 import { toNodeHandler } from 'better-auth/node';
 import scoresRouter from './scores.js';
+import profileRouter from './profile.js';
 import { auth } from './auth.js';
 import { migrate } from './migrate.js';
 
@@ -24,6 +25,7 @@ const app = express();
 app.use(cors());
 app.use(express.static(clientDist));
 app.all('/api/auth/*', toNodeHandler(auth));
+app.use('/api', profileRouter);
 app.use('/api', scoresRouter);
 
 const httpServer = createServer(app);

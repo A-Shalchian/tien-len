@@ -4,6 +4,7 @@ import {
   isLegacyRules, describeChop, describeStuckLast, rulesSummary,
 } from '../utils/scoring.js';
 import { api, getMe, signIn, signOut } from '../utils/api.js';
+import ConsentGate from './ConsentGate.jsx';
 import './scores.css';
 
 function parseRoute() {
@@ -19,9 +20,11 @@ export default function ScoreTracker() {
   const [route, setRoute] = useState(parseRoute);
   const [me, setMe] = useState(undefined);
 
-  useEffect(() => {
+  const loadMe = useCallback(() => {
     getMe().then(setMe).catch(() => setMe({ user: null, offline: true }));
   }, []);
+
+  useEffect(loadMe, [loadMe]);
 
   useEffect(() => {
     const onPop = () => setRoute(parseRoute());
@@ -37,6 +40,7 @@ export default function ScoreTracker() {
   let body;
   if (me === undefined) body = <p className="st-muted">Loading...</p>;
   else if (!me.user) body = <SignInCard offline={me.offline} joining={route.view === 'join'} />;
+  else if (me.needsConsent) body = <ConsentGate onAccepted={loadMe} />;
   else if (route.view === 'join') body = <JoinView code={route.code} onJoined={open} />;
   else if (route.view === 'session') body = <SessionView id={route.id} onBack={() => open(null)} />;
   else body = <SessionList onOpen={open} />;
@@ -57,8 +61,10 @@ function AccountBar({ me }) {
       <a className="st-link" href="/">Home</a>
       {me?.user && (
         <span className="st-account-user">
-          {me.user.image && <img className="st-avatar" src={me.user.image} alt="" referrerPolicy="no-referrer" />}
-          <span>{me.user.name}</span>
+          <a className="st-account-link" href="/profile">
+            {me.user.image && <img className="st-avatar" src={me.user.image} alt="" referrerPolicy="no-referrer" />}
+            <span>{me.user.name}</span>
+          </a>
           <span className="st-chips">{me.balance.toLocaleString()} chips</span>
           <button className="st-btn st-btn-ghost st-btn-sm" onClick={signOut}>Sign out</button>
         </span>
@@ -418,7 +424,11 @@ function SessionView({ id, onBack }) {
                 <td className="st-left">
                   <span className="st-strong">{p.name}</span>
                   <span className="st-small st-muted st-link-note">
-                    {links[p.name]?.isMe ? 'you' : links[p.name]?.userName || 'guest'}
+                    {links[p.name]?.isMe
+                      ? 'you'
+                      : links[p.name]?.userId
+                        ? <a className="st-link" href={`/u/${links[p.name].userId}`}>{links[p.name].userName}</a>
+                        : 'guest'}
                   </span>
                 </td>
                 <td className={`st-strong ${p.total > 0 ? 'st-pos' : p.total < 0 ? 'st-neg' : ''}`}>

@@ -471,3 +471,108 @@
     scrollbar-color: #4a4232 #1a1a1a;
   }
 }
+
+.st-account-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.st-account-link:hover span {
+  text-decoration: underline;
+}
+
+.pf-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pf-head-text {
+  min-width: 0;
+}
+
+.pf-avatar {
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.pf-initials {
+  display: grid;
+  place-items: center;
+  background: #3a3322;
+  color: #e8c26a;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.pf-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.pf-stat {
+  padding: 12px;
+  border: 1px solid #333;
+  border-radius: 10px;
+  background: #242424;
+}
+
+.pf-stat dt {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.pf-stat dd {
+  margin-top: 2px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pf-game-table {
+  margin-top: 4px;
+}
+
+.pf-target td {
+  background: rgba(232, 194, 106, 0.08);
+}
+
+.pf-events {
+  list-style: disc;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  color: #bbb;
+}
+
+.pf-undone {
+  opacity: 0.7;
+}
+
+.pf-undone-note {
+  color: #f28b82;
+}
+
+.pf-btn-link {
+  align-self: flex-start;
+  text-decoration: none;
+}
+
+.pf-danger {
+  border-color: #5a2a2a;
+}
+
+.pf-danger .st-btn-danger {
+  margin-top: 0;
+}

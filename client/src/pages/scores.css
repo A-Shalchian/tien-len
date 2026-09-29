@@ -446,3 +446,28 @@
   min-width: 0;
   font-size: 0.85rem;
 }
+
+.st::-webkit-scrollbar {
+  width: 12px;
+}
+
+.st::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.st::-webkit-scrollbar-thumb {
+  background: #4a4232;
+  border: 3px solid #1a1a1a;
+  border-radius: 999px;
+}
+
+.st::-webkit-scrollbar-thumb:hover {
+  background: #e8c26a;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .st {
+    scrollbar-width: thin;
+    scrollbar-color: #4a4232 #1a1a1a;
+  }
+}

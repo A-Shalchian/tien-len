@@ -489,3 +489,38 @@
 .lp-page .lp-h3 {
   margin-top: 32px;
 }
+
+.lp::-webkit-scrollbar,
+.lp-ladder::-webkit-scrollbar {
+  width: 12px;
+  height: 10px;
+}
+
+.lp::-webkit-scrollbar-track,
+.lp-ladder::-webkit-scrollbar-track {
+  background: var(--lacquer-deep);
+}
+
+.lp::-webkit-scrollbar-thumb,
+.lp-ladder::-webkit-scrollbar-thumb {
+  background: var(--gold-dim);
+  border: 3px solid var(--lacquer-deep);
+  border-radius: 999px;
+}
+
+.lp::-webkit-scrollbar-thumb:hover,
+.lp-ladder::-webkit-scrollbar-thumb:hover {
+  background: var(--gold);
+}
+
+.lp::-webkit-scrollbar-corner {
+  background: var(--lacquer-deep);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .lp,
+  .lp-ladder {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold-dim) var(--lacquer-deep);
+  }
+}

@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { DEFAULT_PLACE_POINTS, DEFAULT_PENALTIES, sessionStats } from '../utils/scoring.js';
+import { DEFAULT_PLACE_POINTS, DEFAULT_PENALTIES } from '../utils/scoring.js';
+import { api, getMe, signIn } from '../utils/api.js';
 import './landing.css';
-
-const API = `${import.meta.env.VITE_SERVER_URL || ''}/api`;
 
 const SEATS = [
   { x: 0, y: 175, r: 0 },
@@ -326,55 +325,33 @@ function HouseRules() {
   );
 }
 
-async function loadLeaderboard() {
-  const res = await fetch(`${API}/sessions`);
-  if (!res.ok) throw new Error();
-  const list = await res.json();
-  const sessions = await Promise.all(list.map((s) => fetch(`${API}/sessions/${s.id}`).then((r) => r.json())));
-  const table = new Map();
-  for (const session of sessions) {
-    for (const row of sessionStats(session)) {
-      const key = row.name.toLocaleLowerCase();
-      const entry = table.get(key) || { name: row.name, total: 0, wins: 0, games: 0 };
-      entry.total += row.total;
-      entry.wins += row.wins;
-      entry.games += session.games.length;
-      table.set(key, entry);
-    }
-  }
-  return [...table.values()]
-    .filter((e) => e.games > 0)
-    .sort((a, b) => b.total - a.total || b.wins - a.wins)
-    .slice(0, 8);
-}
-
 function Leaderboard() {
   const [rows, setRows] = useState(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    loadLeaderboard().then(setRows).catch(() => setFailed(true));
+    api('/leaderboard').then(setRows).catch(() => setFailed(true));
   }, []);
 
   return (
     <section className="lp-section" id="leaderboard">
-      <h2 className="lp-h2">All-time table</h2>
-      <p className="lp-lead">Points from every game recorded in the score tracker.</p>
-      {failed && <p className="lp-text">Scores couldn't load because the server isn't reachable. Try again in a minute.</p>}
-      {!failed && rows === null && <p className="lp-text lp-muted">Loading scores...</p>}
+      <h2 className="lp-h2">Chip leaders</h2>
+      <p className="lp-lead">Everyone starts with 1,000 chips. Tracked games move chips between the players at the table.</p>
+      {failed && <p className="lp-text">The leaderboard couldn't load because the server isn't reachable. Try again in a minute.</p>}
+      {!failed && rows === null && <p className="lp-text lp-muted">Loading the leaderboard...</p>}
       {rows?.length === 0 && (
         <p className="lp-text">
-          No games recorded yet. <a className="lp-inline-link" href="/scores">Start a session</a> next time you play.
+          Nobody has signed in yet. <a className="lp-inline-link" href="/scores">Sign in</a> to get your first 1,000 chips.
         </p>
       )}
       {rows?.length > 0 && (
         <ol className="lp-board">
           {rows.map((r, i) => (
-            <li key={r.name} className={i === 0 ? 'lp-board-first' : ''}>
+            <li key={`${r.name}-${i}`} className={i === 0 ? 'lp-board-first' : ''}>
               <span className="lp-board-pos">{i + 1}</span>
               <span className="lp-board-name">{r.name}</span>
-              <span className="lp-board-stat">{r.wins} {r.wins === 1 ? 'win' : 'wins'} in {r.games} {r.games === 1 ? 'game' : 'games'}</span>
-              <span className="lp-board-pts">{r.total > 0 ? `+${r.total}` : r.total}</span>
+              <span className="lp-board-stat" />
+              <span className="lp-board-pts">{r.balance.toLocaleString()}</span>
             </li>
           ))}
         </ol>
@@ -383,11 +360,30 @@ function Leaderboard() {
   );
 }
 
+function AccountLink() {
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    getMe().then(setMe).catch(() => setMe(null));
+  }, []);
+  if (!me) return null;
+  if (!me.user) {
+    return (
+      <button className="lp-account" onClick={() => signIn('/scores')}>Sign in</button>
+    );
+  }
+  return (
+    <a className="lp-account" href="/scores">
+      {me.user.name} · {me.balance.toLocaleString()} chips
+    </a>
+  );
+}
+
 export default function Landing() {
   return (
     <div className="lp">
       <header className="lp-hero">
         <DealingTable />
+        <AccountLink />
         <div className="lp-hero-copy">
           <h1 className="lp-title">Tiến Lên</h1>
           <p className="lp-tagline">
@@ -408,7 +404,7 @@ export default function Landing() {
       </main>
 
       <footer className="lp-footer">
-        Made for our games with Vy and Thư.
+        Made for our games with Vy and Thư. <a className="lp-inline-link" href="/privacy">Privacy</a>
       </footer>
     </div>
   );

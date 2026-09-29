@@ -3,12 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js"
+    "start": "node --env-file-if-exists=.env index.js",
+    "dev": "node --watch --env-file-if-exists=.env index.js",
+    "import-json": "node --env-file-if-exists=.env import-json.js"
   },
   "dependencies": {
+    "better-auth": "^1.7.6",
+    "cors": "^2.8.5",
     "express": "^4.21.0",
-    "socket.io": "^4.8.0",
-    "cors": "^2.8.5"
+    "pg": "^8.23.0",
+    "socket.io": "^4.8.0"
   }
 }

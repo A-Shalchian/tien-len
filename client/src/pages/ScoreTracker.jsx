@@ -3,49 +3,142 @@ import {
   DEFAULT_PLACE_POINTS, DEFAULT_PENALTIES, gameDeltas, sessionStats, formatDelta, ordinal,
   isLegacyRules, describeChop, describeStuckLast, rulesSummary,
 } from '../utils/scoring.js';
+import { api, getMe, signIn, signOut } from '../utils/api.js';
 import './scores.css';
 
-const API = `${import.meta.env.VITE_SERVER_URL || ''}/api`;
-
-async function api(path, options = {}) {
-  const res = await fetch(`${API}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json' },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  if (res.status === 204) return null;
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Request failed');
-  return data;
-}
-
-function getSessionIdFromURL() {
-  const match = window.location.pathname.match(/^\/scores\/([a-f0-9]+)$/);
-  return match ? match[1] : null;
+function parseRoute() {
+  const path = window.location.pathname;
+  const join = path.match(/^\/scores\/join\/([a-f0-9]+)$/);
+  if (join) return { view: 'join', code: join[1] };
+  const session = path.match(/^\/scores\/([a-f0-9]+)$/);
+  if (session) return { view: 'session', id: session[1] };
+  return { view: 'list' };
 }
 
 export default function ScoreTracker() {
-  const [sessionId, setSessionId] = useState(getSessionIdFromURL);
+  const [route, setRoute] = useState(parseRoute);
+  const [me, setMe] = useState(undefined);
 
   useEffect(() => {
-    const onPop = () => setSessionId(getSessionIdFromURL());
+    getMe().then(setMe).catch(() => setMe({ user: null, offline: true }));
+  }, []);
+
+  useEffect(() => {
+    const onPop = () => setRoute(parseRoute());
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   const open = useCallback((id) => {
     history.pushState({}, '', id ? `/scores/${id}` : '/scores');
-    setSessionId(id);
+    setRoute(parseRoute());
   }, []);
+
+  let body;
+  if (me === undefined) body = <p className="st-muted">Loading...</p>;
+  else if (!me.user) body = <SignInCard offline={me.offline} joining={route.view === 'join'} />;
+  else if (route.view === 'join') body = <JoinView code={route.code} onJoined={open} />;
+  else if (route.view === 'session') body = <SessionView id={route.id} onBack={() => open(null)} />;
+  else body = <SessionList onOpen={open} />;
 
   return (
     <div className="st">
       <div className="st-inner">
-        {sessionId
-          ? <SessionView id={sessionId} onBack={() => open(null)} />
-          : <SessionList onOpen={open} />}
+        <AccountBar me={me} />
+        {body}
       </div>
     </div>
+  );
+}
+
+function AccountBar({ me }) {
+  return (
+    <div className="st-account">
+      <a className="st-link" href="/">Home</a>
+      {me?.user && (
+        <span className="st-account-user">
+          {me.user.image && <img className="st-avatar" src={me.user.image} alt="" referrerPolicy="no-referrer" />}
+          <span>{me.user.name}</span>
+          <span className="st-chips">{me.balance.toLocaleString()} chips</span>
+          <button className="st-btn st-btn-ghost st-btn-sm" onClick={signOut}>Sign out</button>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SignInCard({ offline, joining }) {
+  const [error, setError] = useState(null);
+  const start = () => signIn().catch((e) => setError(e.message));
+  if (offline) {
+    return <p className="st-error">The server isn't reachable right now. Check your connection and reload the page.</p>;
+  }
+  return (
+    <section className="st-card st-form">
+      <h1 className="st-title st-title-inline">Score tracker</h1>
+      <p>
+        {joining
+          ? 'Sign in with Google to join this session.'
+          : 'Sign in with Google to start a session, invite your table and track chips.'}
+      </p>
+      {error && <p className="st-error">{error}</p>}
+      <button className="st-btn st-btn-primary" onClick={start}>Sign in with Google</button>
+    </section>
+  );
+}
+
+function JoinView({ code, onJoined }) {
+  const [invite, setInvite] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api(`/join/${code}`).then(setInvite).catch((e) => setError(e.message));
+  }, [code]);
+
+  const join = async (claim) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { id } = await api(`/join/${code}`, { method: 'POST', body: { claim } });
+      onJoined(id);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
+  if (error && !invite) return <p className="st-error">{error}</p>;
+  if (!invite) return <p className="st-muted">Loading invite...</p>;
+
+  if (invite.joined && invite.claimed) {
+    return (
+      <section className="st-card st-form">
+        <p>You're already in <strong>{invite.name}</strong>.</p>
+        <button className="st-btn st-btn-primary" onClick={() => onJoined(invite.id)}>Open session</button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="st-card st-form">
+      <h1 className="st-title st-title-inline">{invite.name}</h1>
+      <p className="st-muted">{invite.leaderName} invited you. Which player are you?</p>
+      {invite.openPlayers.length > 0 ? (
+        <div className="st-order">
+          {invite.openPlayers.map((p) => (
+            <button key={p} className="st-chip" disabled={busy} onClick={() => join(p)}>{p}</button>
+          ))}
+        </div>
+      ) : (
+        <p className="st-muted">Every seat is taken.</p>
+      )}
+      <p className="st-small st-muted">
+        Picking a player links your account to it, so chips from this session's games go to you.
+      </p>
+      {error && <p className="st-error">{error}</p>}
+      <button className="st-btn st-btn-ghost" disabled={busy} onClick={() => join(null)}>Just watch</button>
+    </section>
   );
 }
 
@@ -62,7 +155,6 @@ function SessionList({ onOpen }) {
     <>
       <header className="st-header">
         <h1 className="st-title">Score tracker</h1>
-        <a className="st-link" href="/">Home</a>
       </header>
 
       {creating
@@ -71,14 +163,19 @@ function SessionList({ onOpen }) {
 
       {error && <p className="st-error">{error}</p>}
 
-      <h2 className="st-h2">Sessions</h2>
+      <h2 className="st-h2">Your sessions</h2>
       {sessions === null && !error && <p className="st-muted">Loading...</p>}
-      {sessions?.length === 0 && <p className="st-muted">No sessions yet.</p>}
+      {sessions?.length === 0 && (
+        <p className="st-muted">No sessions yet. Start one, or open an invite link from a session leader.</p>
+      )}
       <ul className="st-list">
         {sessions?.map((s) => (
           <li key={s.id}>
             <button className="st-card st-session-row" onClick={() => onOpen(s.id)}>
-              <span className="st-session-name">{s.name}</span>
+              <span className="st-session-name">
+                {s.name}
+                {s.role === 'leader' && <span className="st-badge">Leader</span>}
+              </span>
               <span className="st-muted">{s.players.join(', ')}</span>
               <span className="st-muted st-small">
                 {new Date(s.createdAt).toLocaleDateString()} · {s.gameCount} {s.gameCount === 1 ? 'game' : 'games'}
@@ -94,6 +191,8 @@ function SessionList({ onOpen }) {
 function NewSessionForm({ onCancel, onCreated }) {
   const [name, setName] = useState('');
   const [count, setCount] = useState(3);
+  const [me, setMe] = useState(0);
+  const [chipRate, setChipRate] = useState(10);
   const [players, setPlayers] = useState(['', '', '', '']);
   const [showRules, setShowRules] = useState(false);
   const [place, setPlace] = useState(null);
@@ -113,7 +212,7 @@ function NewSessionForm({ onCancel, onCreated }) {
     try {
       const session = await api('/sessions', {
         method: 'POST',
-        body: { name, players: filled, rules: { place: placePoints, ...penalties } },
+        body: { name, players: filled, me, chipRate, rules: { place: placePoints, ...penalties } },
       });
       onCreated(session);
     } catch (err) {
@@ -159,6 +258,30 @@ function NewSessionForm({ onCancel, onCreated }) {
           onChange={(e) => setPlayer(i, e.target.value)}
         />
       ))}
+
+      <label className="st-label">
+        Which one is you?
+        <select className="st-input" value={me} onChange={(e) => setMe(Number(e.target.value))}>
+          {players.slice(0, count).map((p, i) => (
+            <option key={i} value={i}>{p.trim() || `Player ${i + 1}`}</option>
+          ))}
+          <option value={-1}>I'm not playing</option>
+        </select>
+      </label>
+
+      <label className="st-label">
+        Chips per point
+        <input
+          className="st-input st-num"
+          type="number"
+          min={0}
+          value={chipRate}
+          onChange={(e) => setChipRate(Math.max(0, Number(e.target.value)))}
+        />
+        <span className="st-small st-muted">
+          Chips move against the table average, so every game adds up to zero. Use 0 to only track points.
+        </span>
+      </label>
 
       <button type="button" className="st-btn st-btn-ghost" onClick={() => setShowRules((v) => !v)}>
         {showRules ? 'Hide point values' : 'Edit point values'}
@@ -236,6 +359,7 @@ function SessionView({ id, onBack }) {
   }, [id]);
 
   const standings = useMemo(() => (session ? sessionStats(session) : []), [session]);
+  const links = useMemo(() => Object.fromEntries((session?.links || []).map((l) => [l.name, l])), [session]);
 
   const deleteSession = async () => {
     if (!confirmDelete) {
@@ -261,6 +385,8 @@ function SessionView({ id, onBack }) {
   if (!session) return <p className="st-muted">Loading...</p>;
 
   const { rules } = session;
+  const isLeader = session.role === 'leader';
+  const showChips = session.chipRate > 0;
 
   return (
     <>
@@ -268,6 +394,9 @@ function SessionView({ id, onBack }) {
         <button className="st-btn st-btn-ghost" onClick={onBack}>Back</button>
         <h1 className="st-title st-title-sm">{session.name}</h1>
       </header>
+      <p className="st-small st-muted">
+        {isLeader ? 'You lead this session.' : `Led by ${session.leaderName}. Only they can record games and change settings.`}
+      </p>
 
       <section className="st-card">
         <table className="st-table">
@@ -279,41 +408,57 @@ function SessionView({ id, onBack }) {
               <th>Wins</th>
               <th>Last</th>
               <th>Avg</th>
+              {showChips && <th>Chips</th>}
             </tr>
           </thead>
           <tbody>
             {standings.map((p, i) => (
               <tr key={p.name}>
                 <td className="st-muted">{i + 1}</td>
-                <td className="st-left st-strong">{p.name}</td>
+                <td className="st-left">
+                  <span className="st-strong">{p.name}</span>
+                  <span className="st-small st-muted st-link-note">
+                    {links[p.name]?.isMe ? 'you' : links[p.name]?.userName || 'guest'}
+                  </span>
+                </td>
                 <td className={`st-strong ${p.total > 0 ? 'st-pos' : p.total < 0 ? 'st-neg' : ''}`}>
                   {formatDelta(p.total)}
                 </td>
                 <td>{p.wins}</td>
                 <td>{p.last}</td>
                 <td>{p.avgPlace === null ? '-' : p.avgPlace.toFixed(1)}</td>
+                {showChips && (
+                  <td className={links[p.name]?.chips > 0 ? 'st-pos' : links[p.name]?.chips < 0 ? 'st-neg' : 'st-muted'}>
+                    {links[p.name]?.chips === null || links[p.name]?.chips === undefined ? '-' : formatDelta(links[p.name].chips)}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
         <p className="st-small st-muted st-rules-line">
           {rulesSummary(rules)}
+          {showChips ? ` · ${session.chipRate} chips per point` : ''}
         </p>
       </section>
 
-      <RecordGame session={session} onSaved={setSession} />
+      {isLeader && <InvitePanel code={session.inviteCode} />}
+      {isLeader && <RecordGame session={session} onSaved={setSession} />}
+      {isLeader && <SettingsPanel session={session} onSaved={setSession} />}
 
       <h2 className="st-h2">History ({session.games.length})</h2>
       {session.games.length === 0 && <p className="st-muted">No games recorded yet.</p>}
       <ul className="st-list">
         {session.games.map((g, i) => ({ g, n: i + 1 })).reverse().map(({ g, n }) => (
-          <GameRow key={g.id} game={g} number={n} session={session} onRemove={() => removeGame(g.id)} />
+          <GameRow key={g.id} game={g} number={n} session={session} onRemove={isLeader ? () => removeGame(g.id) : null} />
         ))}
       </ul>
 
-      <button className="st-btn st-btn-danger st-btn-block" onClick={deleteSession}>
-        {confirmDelete ? 'Tap again to delete this session' : 'Delete session'}
-      </button>
+      {isLeader && (
+        <button className="st-btn st-btn-danger st-btn-block" onClick={deleteSession}>
+          {confirmDelete ? 'Tap again to delete this session and return its chips' : 'Delete session'}
+        </button>
+      )}
     </>
   );
 }
@@ -512,7 +657,7 @@ function RecordGame({ session, onSaved }) {
 
 function GameRow({ game, number, session, onRemove }) {
   const [confirm, setConfirm] = useState(false);
-  const deltas = gameDeltas(game, session.players, session.rules);
+  const deltas = gameDeltas(game, session.players, game.rules || session.rules);
 
   const tags = [];
   if (game.instantWin) tags.push(`Instant win: ${game.instantWin}`);
@@ -529,13 +674,15 @@ function GameRow({ game, number, session, onRemove }) {
         <span className="st-small st-muted">
           {new Date(game.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
         </span>
-        <button
-          className="st-btn st-btn-ghost st-btn-sm"
-          onClick={() => (confirm ? onRemove() : setConfirm(true))}
-          onBlur={() => setConfirm(false)}
-        >
-          {confirm ? 'Confirm undo' : 'Undo'}
-        </button>
+        {onRemove && (
+          <button
+            className="st-btn st-btn-ghost st-btn-sm"
+            onClick={() => (confirm ? onRemove() : setConfirm(true))}
+            onBlur={() => setConfirm(false)}
+          >
+            {confirm ? 'Confirm undo' : 'Undo'}
+          </button>
+        )}
       </div>
       {!game.instantWin && (
         <div className="st-small">{game.order.map((p, i) => `${ordinal(i + 1)} ${p}`).join(' · ')}</div>
@@ -549,6 +696,115 @@ function GameRow({ game, number, session, onRemove }) {
         ))}
       </div>
     </li>
+  );
+}
+
+function InvitePanel({ code }) {
+  const [copied, setCopied] = useState(false);
+  const link = `${window.location.origin}/scores/join/${code}`;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <section className="st-card st-form">
+      <div className="st-label">Invite link</div>
+      <div className="st-invite">
+        <input className="st-input" readOnly value={link} onFocus={(e) => e.target.select()} />
+        <button className="st-btn" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+      </div>
+      <p className="st-small st-muted">
+        People who open it sign in with Google, pick their player, and can then view this session.
+      </p>
+    </section>
+  );
+}
+
+function SettingsPanel({ session, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(session.name);
+  const [chipRate, setChipRate] = useState(session.chipRate);
+  const [place, setPlace] = useState(session.rules.place);
+  const [penalties, setPenalties] = useState(session.rules);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const legacy = isLegacyRules(session.rules);
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onSaved(await api(`/sessions/${session.id}`, {
+        method: 'PATCH',
+        body: { name, chipRate, rules: { ...penalties, place } },
+      }));
+      setOpen(false);
+    } catch (err) {
+      setError(err.message);
+    }
+    setBusy(false);
+  };
+
+  if (!open) {
+    return <button className="st-btn st-btn-ghost" onClick={() => setOpen(true)}>Session settings</button>;
+  }
+
+  return (
+    <section className="st-card st-form">
+      <h2 className="st-h2 st-h2-flush">Session settings</h2>
+      <label className="st-label">
+        Session name
+        <input className="st-input" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} />
+      </label>
+      <label className="st-label">
+        Chips per point
+        <input
+          className="st-input st-num"
+          type="number"
+          min={0}
+          value={chipRate}
+          onChange={(e) => setChipRate(Math.max(0, Number(e.target.value)))}
+        />
+      </label>
+      <div className="st-rule-group">
+        <div className="st-small st-muted">Finish place</div>
+        <div className="st-rule-row">
+          {place.map((v, i) => (
+            <label key={i} className="st-num-label">
+              {ordinal(i + 1)}
+              <input
+                className="st-input st-num"
+                type="number"
+                value={v}
+                onChange={(e) => setPlace(place.map((x, j) => (j === i ? Number(e.target.value) : x)))}
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+      {!legacy && (
+        <div className="st-rule-row">
+          <PenaltyInput label="Chop black 2" field="chopBlack" values={penalties} onChange={setPenalties} />
+          <PenaltyInput label="Chop red 2" field="chopRed" values={penalties} onChange={setPenalties} />
+          <PenaltyInput label="Black 2 left" field="stuckBlack" values={penalties} onChange={setPenalties} />
+          <PenaltyInput label="Red 2 left" field="stuckRed" values={penalties} onChange={setPenalties} />
+          <PenaltyInput label="Cóng (minus)" field="cong" values={penalties} onChange={setPenalties} />
+          <PenaltyInput label="3♠ win bonus" field="threeSpadeWin" values={penalties} onChange={setPenalties} />
+          <PenaltyInput label="Instant win" field="instantWin" values={penalties} onChange={setPenalties} />
+        </div>
+      )}
+      <p className="st-small st-muted">New values apply to games you record from now on. Past games keep the rules they were played with.</p>
+      {error && <p className="st-error">{error}</p>}
+      <div className="st-actions">
+        <button className="st-btn" onClick={() => setOpen(false)}>Cancel</button>
+        <button className="st-btn st-btn-primary" disabled={busy} onClick={save}>Save settings</button>
+      </div>
+    </section>
   );
 }
 

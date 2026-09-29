@@ -91,7 +91,7 @@ export function sessionStats(session) {
   }]));
 
   for (const game of games) {
-    const deltas = gameDeltas(game, players, rules);
+    const deltas = gameDeltas(game, players, game.rules || rules);
     for (const p of players) stats[p].total += deltas[p];
 
     if (game.instantWin) {

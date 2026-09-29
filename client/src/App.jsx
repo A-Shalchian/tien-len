@@ -4,6 +4,7 @@ import Lobby from './components/Lobby.jsx';
 import Game from './components/Game.jsx';
 import ScoreTracker from './pages/ScoreTracker.jsx';
 import Landing from './pages/Landing.jsx';
+import Privacy from './pages/Privacy.jsx';
 
 function getRoomCodeFromURL() {
   const match = window.location.pathname.match(/^\/room\/([A-Z0-9]{4})$/i);
@@ -14,6 +15,9 @@ export default function App() {
   const path = window.location.pathname;
   if (path.startsWith('/scores')) {
     return <ScoreTracker />;
+  }
+  if (path === '/privacy') {
+    return <Privacy />;
   }
   if (path === '/' || path === '') {
     return <Landing />;

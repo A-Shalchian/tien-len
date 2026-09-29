@@ -382,3 +382,67 @@
   justify-content: space-between;
   flex-wrap: wrap;
 }
+
+.st-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+}
+
+.st-account-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+.st-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+
+.st-chips {
+  color: #e8c26a;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.st-account-user .st-btn-sm {
+  margin-left: 0;
+}
+
+.st-title-inline {
+  font-size: 1.5rem;
+}
+
+.st-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #3a3322;
+  color: #e8c26a;
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.st-link-note {
+  display: block;
+  font-weight: 400;
+}
+
+.st-invite {
+  display: flex;
+  gap: 8px;
+}
+
+.st-invite .st-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+}

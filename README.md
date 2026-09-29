@@ -35,4 +35,15 @@ npm run install:all
 npm run dev
 ```
 
-The client runs at http://localhost:5173 and the server on port 3001. Score sessions are saved to `server/data/scores.json`.
+The client runs at http://localhost:5173 and the server on port 3001.
+
+The server needs a `server/.env` file:
+
+| Variable | What it is |
+|---|---|
+| `DATABASE_URL` | Neon Postgres connection string (pooled) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client for sign-in |
+| `BETTER_AUTH_SECRET` | Random string that signs login cookies |
+| `BETTER_AUTH_URL` | Public URL of the site, `http://localhost:5173` locally |
+
+The server creates its tables on startup.

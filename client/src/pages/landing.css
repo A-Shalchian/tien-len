@@ -456,3 +456,36 @@
     scroll-behavior: auto;
   }
 }
+
+.lp-account {
+  position: absolute;
+  top: 20px;
+  right: clamp(20px, 6vw, 88px);
+  z-index: 2;
+  padding: 9px 16px;
+  border-radius: 7px;
+  border: 1.5px solid rgba(241, 230, 208, 0.35);
+  background: rgba(42, 9, 7, 0.4);
+  color: var(--egg);
+  font: 600 0.9rem var(--body);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lp-account:hover {
+  border-color: var(--egg);
+}
+
+.lp-account:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.lp-page {
+  max-width: 46rem;
+  padding: 56px clamp(20px, 6vw, 88px) 72px;
+}
+
+.lp-page .lp-h3 {
+  margin-top: 32px;
+}

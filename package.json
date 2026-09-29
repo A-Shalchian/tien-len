@@ -3,10 +3,10 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "cd server && node index.js",
+    "dev:server": "cd server && node --env-file-if-exists=.env index.js",
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm install && npm run build",
-    "start": "cd server && node index.js",
+    "start": "cd server && node --env-file-if-exists=.env index.js",
     "install:all": "cd server && npm install && cd ../client && npm install"
   },
   "devDependencies": {

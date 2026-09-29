@@ -9,7 +9,10 @@ import {
 } from './rooms.js';
 import { playCards, pass, getGameState, resolveInstantWin } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
+import { toNodeHandler } from 'better-auth/node';
 import scoresRouter from './scores.js';
+import { auth } from './auth.js';
+import { migrate } from './migrate.js';
 
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -20,6 +23,7 @@ const clientDist = path.join(__dirname, '..', 'client', 'dist');
 const app = express();
 app.use(cors());
 app.use(express.static(clientDist));
+app.all('/api/auth/*', toNodeHandler(auth));
 app.use('/api', scoresRouter);
 
 const httpServer = createServer(app);
@@ -412,6 +416,7 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
+await migrate();
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

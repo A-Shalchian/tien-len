@@ -38,7 +38,8 @@ export default function Privacy() {
       <ul className="lp-list">
         <li>
           <strong>From Google when you sign in:</strong> your name, email address, profile photo and Google account ID.
-          We never see or store your Google password.
+          We never see or store your Google password. Google also gives us sign-in tokens, which we store encrypted and
+          use only to confirm your sign-in.
         </li>
         <li>
           <strong>What you create on the site:</strong> your display name and privacy settings, the score sessions you

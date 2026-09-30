@@ -4,15 +4,18 @@ import { pool } from './db.js';
 
 export const STARTING_CHIPS = 1000;
 
+const env = (name) => process.env[name]?.trim();
+const baseURL = env('BETTER_AUTH_URL');
+
 export const auth = betterAuth({
   database: pool,
-  secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL,
-  trustedOrigins: [process.env.BETTER_AUTH_URL],
+  secret: env('BETTER_AUTH_SECRET'),
+  baseURL,
+  trustedOrigins: [baseURL],
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientId: env('GOOGLE_CLIENT_ID'),
+      clientSecret: env('GOOGLE_CLIENT_SECRET'),
     },
   },
   account: {

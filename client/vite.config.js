@@ -8,6 +8,7 @@ export default defineConfig({
     host: true, // expose on local network for phone testing
     proxy: {
       '/api': 'http://localhost:3001',
+      '/socket.io': { target: 'http://localhost:3001', ws: true },
     },
   },
 });

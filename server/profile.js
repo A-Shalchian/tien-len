@@ -11,7 +11,7 @@ export async function hasAcceptedTerms(userId) {
   return Boolean(rows[0]?.terms_accepted_at);
 }
 
-async function loadProfile(userId) {
+export async function loadProfile(userId) {
   const { rows } = await pool.query(
     `select u.id, u.name as google_name, u.email, u.image as google_image, u."createdAt" as created_at,
             pr.display_name, coalesce(pr.hide_avatar, false) as hide_avatar,

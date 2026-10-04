@@ -1,10 +1,10 @@
 import { createDeck, shuffle, deal, sortCards, cardValue } from './deck.js';
 import { identifyCombo, canBeat, checkInstantWin } from './validator.js';
 
-function createGame(playerIds, ante = 10) {
+function createGame(playerIds, ante = 10, startingBalances = {}) {
   const balances = {};
   for (const id of playerIds) {
-    balances[id] = 1000;
+    balances[id] = startingBalances[id] ?? 1000;
   }
 
   return {
@@ -115,6 +115,14 @@ function isBombAgainst2s(playCombo, tableCombo) {
       tableCombo.type === 'triple') return true;
 
   return false;
+}
+
+function handPenalty(cards) {
+  let penalty = 0;
+  for (const card of cards) {
+    penalty += card.rank === '2' ? 5 : 1;
+  }
+  return penalty;
 }
 
 function calcBombPenalty(tableCards, ante) {
@@ -264,10 +272,7 @@ function resolveWin(game, winnerId) {
 
   for (const loserId of losers) {
     const loserHand = game.hands[loserId];
-    let penalty = 0;
-    for (const card of loserHand) {
-      penalty += card.rank === '2' ? 5 : 1;
-    }
+    const penalty = handPenalty(loserHand);
     loserData[loserId] = { cards: loserHand, penalty };
     totalPenalty += penalty;
     game.balances[loserId] -= penalty;
@@ -330,4 +335,4 @@ function getGameState(game, forPlayerId) {
   };
 }
 
-export { createGame, dealHand, playCards, pass, getGameState, resolveInstantWin };
+export { createGame, dealHand, playCards, pass, getGameState, resolveInstantWin, handPenalty };

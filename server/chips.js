@@ -1,4 +1,4 @@
-import { pool } from './db.js';
+import { pool, transaction } from './db.js';
 import { STARTING_CHIPS } from './auth.js';
 
 const DAILY_TOP_UP = 100;
@@ -16,6 +16,15 @@ export async function applyDailyTopUp(userId) {
      on conflict do nothing`,
     [userId, DAILY_TOP_UP, STARTING_CHIPS],
   );
+}
+
+export async function recordOnlineChips(movements) {
+  if (movements.length === 0) return;
+  await transaction(async (db) => {
+    for (const m of movements) {
+      await db.query(`insert into chip_ledger (user_id, amount, reason) values ($1, $2, 'online')`, [m.userId, m.amount]);
+    }
+  });
 }
 
 export function chipMovements(deltas, players, rate) {

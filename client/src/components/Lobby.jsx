@@ -1,19 +1,59 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { getMe, signIn } from '../utils/api.js';
+import ConsentGate from '../pages/ConsentGate.jsx';
+import MoneyDisplay from './MoneyDisplay.jsx';
 
 const BET_OPTIONS = [10, 25, 50, 100, 250, 500];
 
+function ChipInfo() {
+  return (
+    <div className="chip-info">
+      <p>
+        <strong>Quick Match plays for the chips on your account.</strong> New accounts start with 1,000 chips.
+        If you have fewer than 1,000, you get 100 free chips each day you visit while signed in.
+      </p>
+      <ul>
+        <li>The bet is the ante. Every player puts it in the pot at the start of each hand, and the winner takes the pot.</li>
+        <li>Each loser also pays the winner 1 chip for every card left in their hand, or 5 chips for every 2.</li>
+        <li>If your 2 gets bombed, you pay the bomber the bet for each black 2 (♠ ♣) and double the bet for each red 2 (♥ ♦).</li>
+        <li>An instant win (four 2s or a 3 to A dragon) takes the pot with no card penalties.</li>
+        <li>You need at least the bet to join. If you drop below it between hands, you leave the table.</li>
+        <li>Leaving during a hand ends the match. You pay the bet plus the penalty for the cards in your hand. Nobody else pays for that hand.</li>
+      </ul>
+      <p>Rooms use practice chips. Everyone starts with 1,000 and nothing is saved to your account.</p>
+    </div>
+  );
+}
+
 export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, onRoomJoined, onLeaveRoom, onGameStart, onGameState, error, setError }) {
+  const [me, setMe] = useState(undefined);
   const [nickname, setNickname] = useState('');
   const [joinCode, setJoinCode] = useState(urlRoomCode || '');
   const [ante, setAnte] = useState(10);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [fillWithBots, setFillWithBots] = useState(false);
+  const [isPublic, setIsPublic] = useState(true);
   const [waiting, setWaiting] = useState(false);
   const [lobbyPlayers, setLobbyPlayers] = useState([]);
   const [matchBet, setMatchBet] = useState(50);
   const [matchPlayers, setMatchPlayers] = useState(4);
   const [searching, setSearching] = useState(false);
   const [queueInfo, setQueueInfo] = useState(null);
+  const [openRooms, setOpenRooms] = useState([]);
+  const [showChipInfo, setShowChipInfo] = useState(false);
+
+  const loadMe = useCallback(() => {
+    getMe().then(setMe).catch(() => setMe({ user: null }));
+  }, []);
+
+  useEffect(() => {
+    loadMe();
+  }, [loadMe]);
+
+  const signedIn = !!me?.user;
+  const lockedName = signedIn ? (me.profile?.name || me.user.name || '').slice(0, 20) : null;
+  const playerName = (lockedName ?? nickname).trim();
+  const browsing = !roomCode && !searching;
 
   useEffect(() => {
     if (!socket) return;
@@ -55,6 +95,13 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
       setQueueInfo(null);
     };
 
+    const handleMatchError = ({ error, needsLogin, needsConsent }) => {
+      setSearching(false);
+      setQueueInfo(null);
+      setError(error);
+      if (needsLogin || needsConsent) loadMe();
+    };
+
     socket.on('room-created', handleRoomCreated);
     socket.on('game-start', handleGameStart);
     socket.on('game-state', onGameState);
@@ -62,6 +109,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
     socket.on('player-joined', handlePlayerJoined);
     socket.on('match-queued', handleMatchQueued);
     socket.on('match-cancelled', handleMatchCancelled);
+    socket.on('match-error', handleMatchError);
     socket.on('player-left', handlePlayerLeft);
 
     return () => {
@@ -72,23 +120,40 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
       socket.off('player-joined', handlePlayerJoined);
       socket.off('match-queued', handleMatchQueued);
       socket.off('match-cancelled', handleMatchCancelled);
+      socket.off('match-error', handleMatchError);
       socket.off('player-left', handlePlayerLeft);
     };
-  }, [socket, roomCode, onRoomCreated, onRoomJoined, onGameStart, onGameState, setError]);
+  }, [socket, roomCode, onRoomCreated, onRoomJoined, onGameStart, onGameState, setError, loadMe]);
+
+  useEffect(() => {
+    if (!socket || !browsing) return;
+    const watch = () => socket.emit('watch-rooms');
+    watch();
+    socket.on('connect', watch);
+    socket.on('room-list', setOpenRooms);
+    return () => {
+      socket.off('connect', watch);
+      socket.off('room-list', setOpenRooms);
+      socket.emit('unwatch-rooms');
+    };
+  }, [socket, browsing]);
 
   const handleCreate = () => {
-    if (!nickname.trim()) return;
+    if (!playerName) return;
+    setError(null);
     socket.emit('create-room', {
-      nickname: nickname.trim(),
+      nickname: playerName,
       ante,
       maxPlayers,
       fillWithBots,
+      isPublic,
     });
   };
 
-  const handleJoin = () => {
-    if (!nickname.trim() || !joinCode.trim()) return;
-    socket.emit('join-room', { roomCode: joinCode.trim(), nickname: nickname.trim() });
+  const joinRoom = (code) => {
+    if (!playerName || !code) return;
+    setError(null);
+    socket.emit('join-room', { roomCode: code, nickname: playerName });
   };
 
   const handleStartGame = () => {
@@ -96,10 +161,10 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
   };
 
   const handleFindMatch = () => {
-    if (!nickname.trim()) return;
+    if (!signedIn) return;
+    setError(null);
     setSearching(true);
     socket.emit('find-match', {
-      nickname: nickname.trim(),
       bet: matchBet,
       maxPlayers: matchPlayers,
     });
@@ -111,21 +176,39 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
     setQueueInfo(null);
   };
 
+  const balance = me?.balance ?? 0;
+
   return (
     <div className="lobby">
-      <h1 className="lobby-title">Ti\u00ean L\u00ean</h1>
+      <h1 className="lobby-title">Tiên Lên</h1>
       <p className="lobby-subtitle">Vietnamese Card Game</p>
 
       <div className="lobby-form">
-        <input
-          type="text"
-          placeholder="Your nickname"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          maxLength={12}
-          className="lobby-input"
-          disabled={searching || !!roomCode}
-        />
+        {signedIn ? (
+          <>
+            <input
+              type="text"
+              value={lockedName}
+              className="lobby-input lobby-input-locked"
+              disabled
+              readOnly
+              aria-label="Your name"
+            />
+            <p className="name-note">
+              Signed in. Change your name on your <a href="/profile">profile</a>.
+            </p>
+          </>
+        ) : (
+          <input
+            type="text"
+            placeholder="Your nickname"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            maxLength={12}
+            className="lobby-input"
+            disabled={searching || !!roomCode}
+          />
+        )}
 
         {searching ? (
           <div className="lobby-section">
@@ -154,41 +237,107 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
         ) : !roomCode ? (
           <>
             <div className="lobby-section">
-              <h2>Quick Match</h2>
-              <p className="section-desc">Bet chips and get matched with players</p>
-              <div className="bet-grid">
-                {BET_OPTIONS.map((amount) => (
-                  <button
-                    key={amount}
-                    className={`bet-option ${matchBet === amount ? 'bet-selected' : ''}`}
-                    onClick={() => setMatchBet(amount)}
-                  >
-                    <span className="money-chip" />
-                    {amount}
-                  </button>
-                ))}
-              </div>
-              <div className="ante-row">
-                <label>Players:</label>
-                <select
-                  value={matchPlayers}
-                  onChange={(e) => setMatchPlayers(parseInt(e.target.value))}
-                  className="lobby-input ante-input"
+              <div className="section-head">
+                <h2>Quick Match</h2>
+                <button
+                  type="button"
+                  className={`info-btn ${showChipInfo ? 'info-open' : ''}`}
+                  onClick={() => setShowChipInfo((v) => !v)}
+                  aria-label="How chips work"
+                  aria-expanded={showChipInfo}
                 >
-                  <option value={2}>2</option>
-                  <option value={3}>3</option>
-                  <option value={4}>4</option>
-                </select>
+                  i
+                </button>
               </div>
-              <button onClick={handleFindMatch} disabled={!nickname.trim()} className="btn btn-primary">
-                Find Match
-              </button>
+              {showChipInfo && <ChipInfo />}
+              {me === undefined ? (
+                <p className="section-desc">Loading your account...</p>
+              ) : !signedIn ? (
+                <>
+                  <p className="section-desc">Quick Match bets the chips saved to your account. Sign in to play.</p>
+                  <button onClick={() => signIn('/play')} className="btn btn-primary">
+                    Sign in with Google
+                  </button>
+                </>
+              ) : me.needsConsent ? (
+                <ConsentGate onAccepted={loadMe} />
+              ) : (
+                <>
+                  <div className="chip-balance">
+                    Your chips <MoneyDisplay amount={balance} />
+                  </div>
+                  <div className="bet-grid">
+                    {BET_OPTIONS.map((amount) => (
+                      <button
+                        key={amount}
+                        className={`bet-option ${matchBet === amount ? 'bet-selected' : ''}`}
+                        onClick={() => setMatchBet(amount)}
+                        disabled={amount > balance}
+                      >
+                        <span className="money-chip" />
+                        {amount}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="ante-row">
+                    <label>Players:</label>
+                    <select
+                      value={matchPlayers}
+                      onChange={(e) => setMatchPlayers(parseInt(e.target.value))}
+                      className="lobby-input ante-input"
+                    >
+                      <option value={2}>2</option>
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                    </select>
+                  </div>
+                  <button onClick={handleFindMatch} disabled={matchBet > balance} className="btn btn-primary">
+                    Find Match
+                  </button>
+                  {matchBet > balance && (
+                    <p className="section-desc section-desc-after">Not enough chips for this bet. Pick a smaller one.</p>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="lobby-divider">or</div>
 
             <div className="lobby-section">
-              <h2>Private Room</h2>
+              <h2>Open Rooms</h2>
+              {openRooms.length === 0 ? (
+                <p className="section-desc">No open rooms right now. Create a public room below and it shows up here.</p>
+              ) : (
+                <>
+                  <ul className="room-list">
+                    {openRooms.map((r) => (
+                      <li key={r.code} className="room-row">
+                        <div className="room-row-info">
+                          <span className="room-row-host">{r.host}'s room</span>
+                          <span className="room-row-meta">
+                            Ante {r.ante} · {r.players}/{r.maxPlayers} players{r.fillWithBots ? ' · bots fill seats' : ''}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => joinRoom(r.code)}
+                          disabled={!playerName}
+                          className="btn btn-secondary"
+                        >
+                          Join
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {!playerName && <p className="section-desc">Enter a nickname to join a room.</p>}
+                </>
+              )}
+            </div>
+
+            <div className="lobby-divider">or</div>
+
+            <div className="lobby-section">
+              <h2>Create Room</h2>
+              <p className="section-desc">Rooms use practice chips. Nothing is saved to your account.</p>
               <div className="ante-row">
                 <label>Ante:</label>
                 <input
@@ -223,7 +372,17 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                   Fill empty seats with bots
                 </label>
               </div>
-              <button onClick={handleCreate} disabled={!nickname.trim()} className="btn btn-secondary">
+              <div className="ante-row">
+                <label className="bot-toggle">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                  />
+                  List in open rooms so anyone can join
+                </label>
+              </div>
+              <button onClick={handleCreate} disabled={!playerName} className="btn btn-secondary">
                 Create Room
               </button>
             </div>
@@ -231,7 +390,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
             <div className="lobby-divider">or</div>
 
             <div className="lobby-section">
-              <h2>Join Room</h2>
+              <h2>Join With Code</h2>
               <input
                 type="text"
                 placeholder="Room code"
@@ -240,7 +399,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                 maxLength={4}
                 className="lobby-input code-input"
               />
-              <button onClick={handleJoin} disabled={!nickname.trim() || !joinCode.trim()} className="btn btn-secondary">
+              <button onClick={() => joinRoom(joinCode.trim())} disabled={!playerName || !joinCode.trim()} className="btn btn-secondary">
                 Join
               </button>
             </div>

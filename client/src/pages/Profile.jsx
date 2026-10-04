@@ -10,6 +10,7 @@ const REASONS = {
   game: 'Game',
   undo: 'Game undone or session deleted',
   admin: 'Adjustment',
+  online: 'Online match',
 };
 
 function initials(name) {

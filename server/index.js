@@ -6,13 +6,15 @@ import {
   createRoom, joinRoom, startManually, getRoomBySocket,
   getNicknames, getBotFlags, getBots, removePlayer, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
+  listOpenRooms, isUserBusy, rankedHandMovements, rankedLeaveMovements,
 } from './rooms.js';
 import { playCards, pass, getGameState, resolveInstantWin } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
 import { toNodeHandler } from 'better-auth/node';
 import scoresRouter from './scores.js';
-import profileRouter from './profile.js';
-import { auth } from './auth.js';
+import profileRouter, { loadProfile } from './profile.js';
+import { auth, getUserFromHeaders } from './auth.js';
+import { getBalance, recordOnlineChips } from './chips.js';
 import { migrate } from './migrate.js';
 
 import { fileURLToPath } from 'url';
@@ -36,7 +38,32 @@ const io = new Server(httpServer, {
   },
 });
 
+function saveOnlineChips(movements) {
+  recordOnlineChips(movements).catch((err) => console.error('Failed to save online chips', err));
+}
+
+function broadcastRoomList() {
+  io.to('room-browser').emit('room-list', listOpenRooms());
+}
+
+function endRankedMatch(socketId) {
+  const room = getRoomBySocket(socketId);
+  if (!room?.ranked || !room.game || !room.players.some((p) => p.id === socketId)) return false;
+  saveOnlineChips(rankedLeaveMovements(room, socketId));
+  room.game = null;
+  room.handActive = false;
+  return true;
+}
+
+async function loadPlayer(userId) {
+  const profile = await loadProfile(userId);
+  if (!profile) return null;
+  return { userId: profile.id, name: profile.name, termsAccepted: !!profile.termsAcceptedAt };
+}
+
 function broadcastHandOver(room, result) {
+  room.handActive = false;
+  saveOnlineChips(rankedHandMovements(room));
   const nicknames = getNicknames(room);
   if (result.bombPenalty) {
     const bp = result.bombPenalty;
@@ -71,6 +98,8 @@ function broadcastGameStart(room, dealResult) {
 
   if (dealResult.type === 'instant-win') {
     const winResult = resolveInstantWin(room.game, dealResult.winner, dealResult.pot);
+    room.handActive = false;
+    saveOnlineChips(rankedHandMovements(room));
     for (const p of room.players) {
       if (p.isBot) continue;
       io.to(p.id).emit('game-start', {
@@ -92,6 +121,7 @@ function broadcastGameStart(room, dealResult) {
     return;
   }
 
+  room.handActive = true;
   for (const p of room.players) {
     if (p.isBot) continue;
     io.to(p.id).emit('game-start', {
@@ -203,19 +233,50 @@ function executeBotTurn(room, botId) {
   scheduleBotIfNeeded(room);
 }
 
+io.use(async (socket, next) => {
+  try {
+    const user = await getUserFromHeaders(socket.request.headers);
+    socket.data.player = user ? await loadPlayer(user.id) : null;
+  } catch (err) {
+    console.error('Failed to load socket user', err);
+    socket.data.player = null;
+  }
+  next();
+});
+
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
 
-  socket.on('create-room', ({ nickname, ante, maxPlayers, fillWithBots }) => {
-    const code = createRoom(socket.id, nickname, ante || 10, maxPlayers || 4, fillWithBots || false);
-    socket.join(code);
-    socket.emit('room-created', { roomCode: code });
-    console.log(`Room ${code} created by ${nickname}`);
+  socket.on('watch-rooms', () => {
+    socket.join('room-browser');
+    socket.emit('room-list', listOpenRooms());
   });
 
-  socket.on('join-room', ({ roomCode, nickname }) => {
-    const code = roomCode.toUpperCase();
-    const result = joinRoom(code, socket.id, nickname);
+  socket.on('unwatch-rooms', () => {
+    socket.leave('room-browser');
+  });
+
+  socket.on('create-room', ({ nickname, ante, maxPlayers, fillWithBots, isPublic } = {}) => {
+    const player = socket.data.player;
+    const code = createRoom(
+      socket.id,
+      player?.name || nickname,
+      Math.max(1, Math.min(1000, parseInt(ante) || 10)),
+      parseInt(maxPlayers) || 4,
+      fillWithBots === true,
+      isPublic === true,
+      player?.userId || null,
+    );
+    socket.join(code);
+    socket.emit('room-created', { roomCode: code });
+    broadcastRoomList();
+    console.log(`Room ${code} created`);
+  });
+
+  socket.on('join-room', ({ roomCode, nickname } = {}) => {
+    const code = String(roomCode || '').toUpperCase();
+    const player = socket.data.player;
+    const result = joinRoom(code, socket.id, player?.name || nickname, player?.userId || null);
 
     if (result.error) {
       socket.emit('join-error', { error: result.error });
@@ -223,6 +284,7 @@ io.on('connection', (socket) => {
     }
 
     socket.join(code);
+    broadcastRoomList();
 
     if (result.waiting) {
       const nicknames = getNicknames(result.room);
@@ -241,7 +303,7 @@ io.on('connection', (socket) => {
     }
 
     broadcastGameStart(result.room, result.dealResult);
-    console.log(`${nickname} joined room ${code}`);
+    console.log(`Player joined room ${code}`);
   });
 
   socket.on('start-game', () => {
@@ -254,6 +316,7 @@ io.on('connection', (socket) => {
       return;
     }
 
+    broadcastRoomList();
     broadcastGameStart(result.room, result.dealResult);
   });
 
@@ -336,10 +399,47 @@ io.on('connection', (socket) => {
     broadcastGameStart(room, result);
   });
 
-  socket.on('find-match', ({ nickname, bet, maxPlayers }) => {
+  socket.on('find-match', async ({ bet, maxPlayers } = {}) => {
+    if (!socket.data.player) {
+      socket.emit('match-error', { error: 'Sign in with Google to play Quick Match.', needsLogin: true });
+      return;
+    }
+
     const betAmount = Math.max(10, Math.min(1000, parseInt(bet) || 10));
-    const players = Math.min(Math.max(maxPlayers || 4, 2), 4);
-    const result = joinMatchmaking(socket.id, nickname, betAmount, players);
+    const players = Math.min(Math.max(parseInt(maxPlayers) || 4, 2), 4);
+
+    let player;
+    let balance;
+    try {
+      player = await loadPlayer(socket.data.player.userId);
+      balance = player ? await getBalance(player.userId) : 0;
+    } catch (err) {
+      console.error('Failed to load chips for matchmaking', err);
+      socket.emit('match-error', { error: 'Could not load your chips. Try again.' });
+      return;
+    }
+
+    if (!socket.connected) return;
+    if (!player) {
+      socket.data.player = null;
+      socket.emit('match-error', { error: 'Sign in with Google to play Quick Match.', needsLogin: true });
+      return;
+    }
+    socket.data.player = player;
+    if (!player.termsAccepted) {
+      socket.emit('match-error', { error: 'Accept the terms to play Quick Match.', needsConsent: true });
+      return;
+    }
+    if (balance < betAmount) {
+      socket.emit('match-error', { error: `You need at least ${betAmount} chips for this bet. You have ${balance}.` });
+      return;
+    }
+    if (isUserBusy(player.userId)) {
+      socket.emit('match-error', { error: 'You are already in a Quick Match in another tab.' });
+      return;
+    }
+
+    const result = joinMatchmaking(socket.id, player, betAmount, players, balance);
 
     if (result.matched) {
       for (const p of result.room.players) {
@@ -363,6 +463,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('leave-room', () => {
+    const rankedEnded = endRankedMatch(socket.id);
     const room = removePlayer(socket.id);
     if (room) {
       socket.leave(room.code);
@@ -373,8 +474,10 @@ io.on('connection', (socket) => {
             nicknames: getNicknames(room),
             playerCount: room.players.length,
           });
+          if (rankedEnded) io.to(p.id).emit('player-disconnected', { playerId: socket.id });
         }
       }
+      broadcastRoomList();
       console.log(`Player left room ${room.code}`);
     }
   });
@@ -392,8 +495,10 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     leaveMatchmaking(socket.id);
+    endRankedMatch(socket.id);
     const room = removePlayer(socket.id);
     if (room) {
+      broadcastRoomList();
       const remainingHumans = room.players.filter(p => !p.isBot);
 
       if (remainingHumans.length === 0) {

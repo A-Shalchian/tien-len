@@ -1,11 +1,11 @@
-import { createGame, dealHand } from './game/engine.js';
+import { createGame, dealHand, handPenalty } from './game/engine.js';
 import { createBotId, pickBotName } from './game/bot.js';
 
 const rooms = new Map();
 const socketToRoom = new Map();
 
 function sanitizeNickname(name) {
-  return name.replace(/[<>&"'/]/g, '').trim().slice(0, 12) || 'Player';
+  return String(name ?? '').replace(/[<>&"'/]/g, '').trim().slice(0, 20) || 'Player';
 }
 
 function generateCode() {
@@ -17,7 +17,7 @@ function generateCode() {
   return code;
 }
 
-function createRoom(hostSocketId, nickname, ante = 10, maxPlayers = 4, fillWithBots = false) {
+function createRoom(hostSocketId, nickname, ante = 10, maxPlayers = 4, fillWithBots = false, isPublic = false, userId = null) {
   let code = generateCode();
   while (rooms.has(code)) code = generateCode();
 
@@ -26,11 +26,13 @@ function createRoom(hostSocketId, nickname, ante = 10, maxPlayers = 4, fillWithB
   rooms.set(code, {
     code,
     host: hostSocketId,
-    players: [{ id: hostSocketId, nickname: safeName, isBot: false }],
+    players: [{ id: hostSocketId, nickname: safeName, isBot: false, userId }],
     game: null,
     ante,
     maxPlayers: Math.min(Math.max(maxPlayers, 2), 4),
     fillWithBots,
+    isPublic,
+    ranked: false,
     readyForNext: new Set(),
   });
 
@@ -38,9 +40,9 @@ function createRoom(hostSocketId, nickname, ante = 10, maxPlayers = 4, fillWithB
   return code;
 }
 
-function joinRoom(code, socketId, nickname) {
+function joinRoom(code, socketId, nickname, userId = null) {
   const room = rooms.get(code);
-  if (!room) return { error: 'Room not found' };
+  if (!room || room.ranked) return { error: 'Room not found' };
   if (room.game) return { error: 'Game already in progress' };
   if (room.players.some(p => p.id === socketId)) return { error: 'Already in room' };
 
@@ -49,7 +51,7 @@ function joinRoom(code, socketId, nickname) {
   if (openSlots <= 0 || (!room.fillWithBots && currentHumans >= room.maxPlayers)) return { error: 'Room is full' };
 
   const safeName = sanitizeNickname(nickname);
-  room.players.push({ id: socketId, nickname: safeName, isBot: false });
+  room.players.push({ id: socketId, nickname: safeName, isBot: false, userId });
   socketToRoom.set(socketId, code);
 
   const humanCount = room.players.filter(p => !p.isBot).length;
@@ -95,7 +97,7 @@ function fillRoomWithBots(room) {
 
 function startGame(room) {
   const playerIds = room.players.map(p => p.id);
-  room.game = createGame(playerIds, room.ante);
+  room.game = createGame(playerIds, room.ante, room.startingBalances);
 
   const result = dealHand(room.game);
   return { room, dealResult: result };
@@ -179,6 +181,7 @@ function checkAndRemoveBrokePlayers(room) {
     const balance = room.game.balances[p.id];
     if (balance < ante) {
       kicked.push({ id: p.id, nickname: p.nickname, isBot: p.isBot, balance });
+      socketToRoom.delete(p.id);
       delete room.game.balances[p.id];
       delete room.game.hands[p.id];
       return false;
@@ -225,7 +228,7 @@ function requestNewHand(room, socketId) {
 
 const matchQueues = new Map();
 
-function joinMatchmaking(socketId, nickname, bet, maxPlayers = 4) {
+function joinMatchmaking(socketId, player, bet, maxPlayers = 4, balance = 0) {
   const key = `${bet}-${maxPlayers}`;
 
   if (!matchQueues.has(key)) {
@@ -238,23 +241,30 @@ function joinMatchmaking(socketId, nickname, bet, maxPlayers = 4) {
     return { queued: true, position: queue.findIndex(p => p.id === socketId) + 1, needed: maxPlayers };
   }
 
-  queue.push({ id: socketId, nickname });
+  queue.push({ id: socketId, nickname: sanitizeNickname(player.name), userId: player.userId, balance });
 
   if (queue.length >= maxPlayers) {
     const players = queue.splice(0, maxPlayers);
     let code = generateCode();
     while (rooms.has(code)) code = generateCode();
 
+    const balances = Object.fromEntries(players.map(p => [p.id, p.balance]));
     rooms.set(code, {
       code,
       host: players[0].id,
-      players: players.map(p => ({ id: p.id, nickname: p.nickname, isBot: false })),
+      players: players.map(p => ({ id: p.id, nickname: p.nickname, isBot: false, userId: p.userId })),
       game: null,
       ante: bet,
       maxPlayers,
       fillWithBots: false,
+      isPublic: false,
+      ranked: true,
+      startingBalances: balances,
+      settled: { ...balances },
+      handActive: false,
       readyForNext: new Set(),
     });
+    for (const p of players) socketToRoom.set(p.id, code);
 
     const room = rooms.get(code);
     const result = startGame(room);
@@ -276,9 +286,64 @@ function leaveMatchmaking(socketId) {
   return false;
 }
 
+function listOpenRooms() {
+  const list = [];
+  for (const room of rooms.values()) {
+    if (!room.isPublic || room.game) continue;
+    const humans = room.players.filter(p => !p.isBot);
+    if (humans.length >= room.maxPlayers) continue;
+    const host = room.players.find(p => p.id === room.host);
+    list.push({
+      code: room.code,
+      host: host ? host.nickname : humans[0]?.nickname,
+      ante: room.ante,
+      players: humans.length,
+      maxPlayers: room.maxPlayers,
+      fillWithBots: room.fillWithBots,
+    });
+  }
+  return list;
+}
+
+function isUserBusy(userId) {
+  for (const queue of matchQueues.values()) {
+    if (queue.some(p => p.userId === userId)) return true;
+  }
+  for (const room of rooms.values()) {
+    if (room.ranked && room.game && room.players.some(p => p.userId === userId)) return true;
+  }
+  return false;
+}
+
+function rankedHandMovements(room) {
+  if (!room.ranked || !room.game) return [];
+  const movements = [];
+  for (const p of room.players) {
+    if (!p.userId) continue;
+    const balance = room.game.balances[p.id];
+    if (balance === undefined) continue;
+    const amount = balance - room.settled[p.id];
+    room.settled[p.id] = balance;
+    if (amount !== 0) movements.push({ userId: p.userId, amount });
+  }
+  return movements;
+}
+
+function rankedLeaveMovements(room, socketId) {
+  if (!room?.ranked || !room.game) return [];
+  const player = room.players.find(p => p.id === socketId);
+  const balance = room.game.balances[socketId];
+  if (!player?.userId || balance === undefined) return [];
+  let amount = balance - room.settled[socketId];
+  if (room.handActive) amount -= handPenalty(room.game.hands[socketId] || []);
+  room.settled[socketId] = balance;
+  return amount !== 0 ? [{ userId: player.userId, amount }] : [];
+}
+
 export {
   rooms, createRoom, joinRoom, startManually,
   getRoomBySocket, getNicknames, getBotFlags, getBots,
   removePlayer, requestNewHand,
   joinMatchmaking, leaveMatchmaking, matchQueues,
+  listOpenRooms, isUserBusy, rankedHandMovements, rankedLeaveMovements,
 };

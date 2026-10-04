@@ -2,7 +2,7 @@ import Card from './Card.jsx';
 
 export default function Hand({ cards, selectedIds, onToggle, dealing }) {
   return (
-    <div className="hand-cards">
+    <div className="hand-cards" style={{ '--count': cards.length }}>
       {cards.map((card, index) => (
         <Card
           key={card.id}

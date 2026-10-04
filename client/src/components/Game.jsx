@@ -280,9 +280,6 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
 
   return (
     <div className="game">
-      <button className="mute-btn" onClick={toggleMute}>
-        {muted ? '\u{1F507}' : '\u{1F50A}'}
-      </button>
       <div className="opponents-area">
         {opponents.map((oppId) => (
           <div key={oppId} className={`opponent-slot ${gameState.turn === oppId ? 'active-turn' : ''} ${passedSet.has(oppId) ? 'passed' : ''}`}>
@@ -300,6 +297,9 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       </div>
 
       <div className="table-area">
+        <button className="mute-btn" onClick={toggleMute}>
+          {muted ? '\u{1F507}' : '\u{1F50A}'}
+        </button>
         <div className={`turn-indicator ${isMyTurn ? 'your-turn' : ''}`}>
           {isMyTurn ? 'Your turn' : `${turnNickname}'s turn`}
         </div>

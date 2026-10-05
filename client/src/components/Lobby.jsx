@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getMe, signIn } from '../utils/api.js';
 import ConsentGate from '../pages/ConsentGate.jsx';
 import MoneyDisplay from './MoneyDisplay.jsx';
@@ -21,6 +21,39 @@ function ChipInfo() {
         <li>Leaving during a hand ends the match. You pay the bet plus the penalty for the cards in your hand. Nobody else pays for that hand.</li>
       </ul>
       <p>Rooms use practice chips. Everyone starts with 1,000 and nothing is saved to your account.</p>
+    </div>
+  );
+}
+
+function ChipInfoModal({ onClose }) {
+  const closeRef = useRef(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="chip-info-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2 id="chip-info-title">How chips work</h2>
+          <button ref={closeRef} type="button" className="modal-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+        <ChipInfo />
+      </div>
     </div>
   );
 }
@@ -54,6 +87,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
   const lockedName = signedIn ? (me.profile?.name || me.user.name || '').slice(0, 20) : null;
   const playerName = (lockedName ?? nickname).trim();
   const browsing = !roomCode && !searching;
+  const closeChipInfo = useCallback(() => setShowChipInfo(false), []);
 
   useEffect(() => {
     if (!socket) return;
@@ -183,32 +217,34 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
       <h1 className="lobby-title">Tiên Lên</h1>
       <p className="lobby-subtitle">Vietnamese Card Game</p>
 
-      <div className="lobby-form">
-        {signedIn ? (
-          <>
+      <div className={`lobby-form ${browsing ? 'lobby-form-wide' : ''}`}>
+        <div className="lobby-name">
+          {signedIn ? (
+            <>
+              <input
+                type="text"
+                value={lockedName}
+                className="lobby-input lobby-input-locked"
+                disabled
+                readOnly
+                aria-label="Your name"
+              />
+              <p className="name-note">
+                Signed in. Change your name on your <a href="/profile">profile</a>.
+              </p>
+            </>
+          ) : (
             <input
               type="text"
-              value={lockedName}
-              className="lobby-input lobby-input-locked"
-              disabled
-              readOnly
-              aria-label="Your name"
+              placeholder="Your nickname"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              maxLength={12}
+              className="lobby-input"
+              disabled={searching || !!roomCode}
             />
-            <p className="name-note">
-              Signed in. Change your name on your <a href="/profile">profile</a>.
-            </p>
-          </>
-        ) : (
-          <input
-            type="text"
-            placeholder="Your nickname"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            maxLength={12}
-            className="lobby-input"
-            disabled={searching || !!roomCode}
-          />
-        )}
+          )}
+        </div>
 
         {searching ? (
           <div className="lobby-section">
@@ -235,175 +271,181 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
             </button>
           </div>
         ) : !roomCode ? (
-          <>
-            <div className="lobby-section">
-              <div className="section-head">
-                <h2>Quick Match</h2>
-                <button
-                  type="button"
-                  className={`info-btn ${showChipInfo ? 'info-open' : ''}`}
-                  onClick={() => setShowChipInfo((v) => !v)}
-                  aria-label="How chips work"
-                  aria-expanded={showChipInfo}
-                >
-                  i
+          <div className="lobby-grid">
+            <div className="lobby-col">
+              <div className="lobby-section">
+                <div className="section-head">
+                  <h2>Quick Match</h2>
+                  <button
+                    type="button"
+                    className={`info-btn ${showChipInfo ? 'info-open' : ''}`}
+                    onClick={() => setShowChipInfo(true)}
+                    aria-label="How chips work"
+                    aria-haspopup="dialog"
+                  >
+                    i
+                  </button>
+                </div>
+                {showChipInfo && <ChipInfoModal onClose={closeChipInfo} />}
+                {me === undefined ? (
+                  <p className="section-desc">Loading your account...</p>
+                ) : !signedIn ? (
+                  <>
+                    <p className="section-desc">Quick Match bets the chips saved to your account. Sign in to play.</p>
+                    <button onClick={() => signIn('/play')} className="btn btn-primary">
+                      Sign in with Google
+                    </button>
+                  </>
+                ) : me.needsConsent ? (
+                  <ConsentGate onAccepted={loadMe} />
+                ) : (
+                  <>
+                    <div className="chip-balance">
+                      Your chips <MoneyDisplay amount={balance} />
+                    </div>
+                    <div className="bet-grid">
+                      {BET_OPTIONS.map((amount) => (
+                        <button
+                          key={amount}
+                          className={`bet-option ${matchBet === amount ? 'bet-selected' : ''}`}
+                          onClick={() => setMatchBet(amount)}
+                          disabled={amount > balance}
+                        >
+                          <span className="money-chip" />
+                          {amount}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="ante-row">
+                      <label>Players:</label>
+                      <select
+                        value={matchPlayers}
+                        onChange={(e) => setMatchPlayers(parseInt(e.target.value))}
+                        className="lobby-input ante-input"
+                      >
+                        <option value={2}>2</option>
+                        <option value={3}>3</option>
+                        <option value={4}>4</option>
+                      </select>
+                    </div>
+                    <button onClick={handleFindMatch} disabled={matchBet > balance} className="btn btn-primary">
+                      Find Match
+                    </button>
+                    {matchBet > balance && (
+                      <p className="section-desc section-desc-after">Not enough chips for this bet. Pick a smaller one.</p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="lobby-divider">or</div>
+
+            <div className="lobby-col">
+              <div className="lobby-section">
+                <h2>Open Rooms</h2>
+                {openRooms.length === 0 ? (
+                  <p className="section-desc">No open rooms right now. Create a public room and it shows up here.</p>
+                ) : (
+                  <>
+                    <ul className="room-list">
+                      {openRooms.map((r) => (
+                        <li key={r.code} className="room-row">
+                          <div className="room-row-info">
+                            <span className="room-row-host">{r.host}'s room</span>
+                            <span className="room-row-meta">
+                              Ante {r.ante} · {r.players}/{r.maxPlayers} players{r.fillWithBots ? ' · bots fill seats' : ''}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => joinRoom(r.code)}
+                            disabled={!playerName}
+                            className="btn btn-secondary"
+                          >
+                            Join
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    {!playerName && <p className="section-desc">Enter a nickname to join a room.</p>}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="lobby-divider">or</div>
+
+            <div className="lobby-col">
+              <div className="lobby-section">
+                <h2>Create Room</h2>
+                <p className="section-desc">Rooms use practice chips. Nothing is saved to your account.</p>
+                <div className="ante-row">
+                  <label>Ante:</label>
+                  <input
+                    type="number"
+                    value={ante}
+                    onChange={(e) => setAnte(Math.max(1, parseInt(e.target.value) || 1))}
+                    min={1}
+                    max={100}
+                    className="lobby-input ante-input"
+                  />
+                  <span className="chip-label">chips</span>
+                </div>
+                <div className="ante-row">
+                  <label>Players:</label>
+                  <select
+                    value={maxPlayers}
+                    onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
+                    className="lobby-input ante-input"
+                  >
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                    <option value={4}>4</option>
+                  </select>
+                </div>
+                <div className="ante-row">
+                  <label className="bot-toggle">
+                    <input
+                      type="checkbox"
+                      checked={fillWithBots}
+                      onChange={(e) => setFillWithBots(e.target.checked)}
+                    />
+                    Fill empty seats with bots
+                  </label>
+                </div>
+                <div className="ante-row">
+                  <label className="bot-toggle">
+                    <input
+                      type="checkbox"
+                      checked={isPublic}
+                      onChange={(e) => setIsPublic(e.target.checked)}
+                    />
+                    List in open rooms so anyone can join
+                  </label>
+                </div>
+                <button onClick={handleCreate} disabled={!playerName} className="btn btn-secondary">
+                  Create Room
                 </button>
               </div>
-              {showChipInfo && <ChipInfo />}
-              {me === undefined ? (
-                <p className="section-desc">Loading your account...</p>
-              ) : !signedIn ? (
-                <>
-                  <p className="section-desc">Quick Match bets the chips saved to your account. Sign in to play.</p>
-                  <button onClick={() => signIn('/play')} className="btn btn-primary">
-                    Sign in with Google
-                  </button>
-                </>
-              ) : me.needsConsent ? (
-                <ConsentGate onAccepted={loadMe} />
-              ) : (
-                <>
-                  <div className="chip-balance">
-                    Your chips <MoneyDisplay amount={balance} />
-                  </div>
-                  <div className="bet-grid">
-                    {BET_OPTIONS.map((amount) => (
-                      <button
-                        key={amount}
-                        className={`bet-option ${matchBet === amount ? 'bet-selected' : ''}`}
-                        onClick={() => setMatchBet(amount)}
-                        disabled={amount > balance}
-                      >
-                        <span className="money-chip" />
-                        {amount}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="ante-row">
-                    <label>Players:</label>
-                    <select
-                      value={matchPlayers}
-                      onChange={(e) => setMatchPlayers(parseInt(e.target.value))}
-                      className="lobby-input ante-input"
-                    >
-                      <option value={2}>2</option>
-                      <option value={3}>3</option>
-                      <option value={4}>4</option>
-                    </select>
-                  </div>
-                  <button onClick={handleFindMatch} disabled={matchBet > balance} className="btn btn-primary">
-                    Find Match
-                  </button>
-                  {matchBet > balance && (
-                    <p className="section-desc section-desc-after">Not enough chips for this bet. Pick a smaller one.</p>
-                  )}
-                </>
-              )}
-            </div>
 
-            <div className="lobby-divider">or</div>
+              <div className="lobby-divider">or</div>
 
-            <div className="lobby-section">
-              <h2>Open Rooms</h2>
-              {openRooms.length === 0 ? (
-                <p className="section-desc">No open rooms right now. Create a public room below and it shows up here.</p>
-              ) : (
-                <>
-                  <ul className="room-list">
-                    {openRooms.map((r) => (
-                      <li key={r.code} className="room-row">
-                        <div className="room-row-info">
-                          <span className="room-row-host">{r.host}'s room</span>
-                          <span className="room-row-meta">
-                            Ante {r.ante} · {r.players}/{r.maxPlayers} players{r.fillWithBots ? ' · bots fill seats' : ''}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => joinRoom(r.code)}
-                          disabled={!playerName}
-                          className="btn btn-secondary"
-                        >
-                          Join
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  {!playerName && <p className="section-desc">Enter a nickname to join a room.</p>}
-                </>
-              )}
-            </div>
-
-            <div className="lobby-divider">or</div>
-
-            <div className="lobby-section">
-              <h2>Create Room</h2>
-              <p className="section-desc">Rooms use practice chips. Nothing is saved to your account.</p>
-              <div className="ante-row">
-                <label>Ante:</label>
+              <div className="lobby-section">
+                <h2>Join With Code</h2>
                 <input
-                  type="number"
-                  value={ante}
-                  onChange={(e) => setAnte(Math.max(1, parseInt(e.target.value) || 1))}
-                  min={1}
-                  max={100}
-                  className="lobby-input ante-input"
+                  type="text"
+                  placeholder="Room code"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  maxLength={4}
+                  className="lobby-input code-input"
                 />
-                <span className="chip-label">chips</span>
+                <button onClick={() => joinRoom(joinCode.trim())} disabled={!playerName || !joinCode.trim()} className="btn btn-secondary">
+                  Join
+                </button>
               </div>
-              <div className="ante-row">
-                <label>Players:</label>
-                <select
-                  value={maxPlayers}
-                  onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
-                  className="lobby-input ante-input"
-                >
-                  <option value={2}>2</option>
-                  <option value={3}>3</option>
-                  <option value={4}>4</option>
-                </select>
-              </div>
-              <div className="ante-row">
-                <label className="bot-toggle">
-                  <input
-                    type="checkbox"
-                    checked={fillWithBots}
-                    onChange={(e) => setFillWithBots(e.target.checked)}
-                  />
-                  Fill empty seats with bots
-                </label>
-              </div>
-              <div className="ante-row">
-                <label className="bot-toggle">
-                  <input
-                    type="checkbox"
-                    checked={isPublic}
-                    onChange={(e) => setIsPublic(e.target.checked)}
-                  />
-                  List in open rooms so anyone can join
-                </label>
-              </div>
-              <button onClick={handleCreate} disabled={!playerName} className="btn btn-secondary">
-                Create Room
-              </button>
             </div>
-
-            <div className="lobby-divider">or</div>
-
-            <div className="lobby-section">
-              <h2>Join With Code</h2>
-              <input
-                type="text"
-                placeholder="Room code"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                maxLength={4}
-                className="lobby-input code-input"
-              />
-              <button onClick={() => joinRoom(joinCode.trim())} disabled={!playerName || !joinCode.trim()} className="btn btn-secondary">
-                Join
-              </button>
-            </div>
-          </>
+          </div>
         ) : (
           <div className="lobby-section waiting-section">
             <h2>Room Code</h2>

@@ -1,7 +1,7 @@
 import express from 'express';
 import { pool, transaction } from './db.js';
 import { getUser } from './auth.js';
-import { getBalance, applyDailyTopUp } from './chips.js';
+import { getBalance, applyDailyTopUp, gameChips } from './chips.js';
 import {
   gameDeltas, describeChop, describeStuckLast, ordinal,
 } from '../client/src/utils/scoring.js';
@@ -38,17 +38,6 @@ export async function loadProfile(userId) {
   };
 }
 
-function mapNames(data, label) {
-  return {
-    ...data,
-    order: (data.order || []).map(label),
-    instantWin: data.instantWin ? label(data.instantWin) : null,
-    cong: (data.cong || []).map(label),
-    chops: (data.chops || []).map((c) => ({ ...c, by: label(c.by), victim: label(c.victim) })),
-    stuckTwos: Object.fromEntries(Object.entries(data.stuckTwos || {}).map(([k, v]) => [label(k), v])),
-  };
-}
-
 function describeEvents(data) {
   const events = [];
   if (data.instantWin) events.push(`${data.instantWin} won instantly`);
@@ -60,103 +49,99 @@ function describeEvents(data) {
   return events;
 }
 
-async function gameHistory(targetId, viewerId, limit = 300) {
-  const isSelf = targetId === viewerId;
-  const { rows: games } = await pool.query(
-    `select g.id, g.session_id, g.data, g.rules, g.created_at, g.undone_at, g.recorded_by, g.undone_by,
-            s.name as session_name,
-            (s.leader_id = $2 or exists (select 1 from session_members m where m.session_id = s.id and m.user_id = $2)) as viewer_in_session
-     from games g join tracker_sessions s on s.id = g.session_id
-     where exists (select 1 from session_players p where p.session_id = g.session_id and p.user_id = $1)
-     order by g.created_at desc limit $3`,
-    [targetId, viewerId || '', limit],
-  );
-  if (!games.length) return [];
-
-  const sessionIds = [...new Set(games.map((g) => g.session_id))];
-  const gameIds = games.map((g) => g.id);
-  const peopleIds = [...new Set(games.flatMap((g) => [g.recorded_by, g.undone_by]).filter(Boolean))];
-
-  const [players, chips, people] = await Promise.all([
-    pool.query(
-      `select p.session_id, p.position, p.name, p.user_id, coalesce(pr.private_profile, false) as private_profile
-       from session_players p left join profiles pr on pr.user_id = p.user_id
-       where p.session_id = any($1) order by p.position`,
-      [sessionIds],
-    ),
-    pool.query(
-      `select game_id, user_id, sum(amount)::int as amount from chip_ledger
-       where game_id = any($1) and reason = 'game' group by game_id, user_id`,
-      [gameIds],
-    ),
-    pool.query(
-      `select u.id, coalesce(pr.display_name, u.name) as name from "user" u left join profiles pr on pr.user_id = u.id
-       where u.id = any($1)`,
-      [peopleIds],
-    ),
-  ]);
-
-  const playersBySession = {};
-  for (const p of players.rows) (playersBySession[p.session_id] ||= []).push(p);
-  const chipsByGame = {};
-  for (const c of chips.rows) (chipsByGame[c.game_id] ||= {})[c.user_id] = c.amount;
-  const nameOf = Object.fromEntries(people.rows.map((p) => [p.id, p.name]));
-
-  return games.map((g) => {
-    const seats = playersBySession[g.session_id] || [];
-    const canSee = isSelf || g.viewer_in_session;
-    const label = (name) => {
-      const seat = seats.find((p) => p.name === name);
-      if (!seat || canSee || seat.user_id === targetId) return name;
-      if (!seat.user_id || seat.private_profile) return `Player ${seat.position + 1}`;
-      return name;
-    };
-    const names = seats.map((p) => p.name);
-    const deltas = gameDeltas(g.data, names, g.rules);
-    const shown = mapNames(g.data, label);
-    return {
-      id: g.id,
-      sessionId: g.session_id,
-      sessionName: canSee ? g.session_name : 'A private session',
-      canOpenSession: Boolean(g.viewer_in_session),
-      at: g.created_at,
-      recordedBy: canSee ? nameOf[g.recorded_by] || 'a deleted account' : null,
-      undoneAt: g.undone_at,
-      undoneBy: g.undone_at && canSee ? nameOf[g.undone_by] || 'a deleted account' : null,
-      rules: g.rules,
-      players: seats.map((p) => {
-        const place = g.data.instantWin
-          ? (p.name === g.data.instantWin ? 1 : null)
-          : g.data.order.indexOf(p.name) + 1 || null;
-        const visibleUser = p.user_id && (canSee || p.user_id === targetId || !p.private_profile);
-        return {
-          name: label(p.name),
-          userId: visibleUser ? p.user_id : null,
-          isTarget: p.user_id === targetId,
-          place,
-          placeLabel: place ? ordinal(place) : null,
-          points: deltas[p.name] || 0,
-          chips: p.user_id && chipsByGame[g.id] ? chipsByGame[g.id][p.user_id] ?? null : null,
-        };
-      }),
-      events: describeEvents(shown),
-    };
-  });
+function gameView(g, seats, userId, nameOf) {
+  const names = seats.map((p) => p.name);
+  const deltas = gameDeltas(g.data, names, g.rules);
+  const chips = gameChips(deltas, g.chip_rate);
+  return {
+    id: g.id,
+    at: g.created_at,
+    recordedBy: nameOf[g.recorded_by] || 'a deleted account',
+    undoneAt: g.undone_at,
+    undoneBy: g.undone_at ? nameOf[g.undone_by] || 'a deleted account' : null,
+    players: seats.map((p) => {
+      const place = g.data.instantWin
+        ? (p.name === g.data.instantWin ? 1 : null)
+        : g.data.order.indexOf(p.name) + 1 || null;
+      return {
+        name: p.name,
+        userId: p.user_id,
+        isMe: p.user_id === userId,
+        place,
+        placeLabel: place ? ordinal(place) : null,
+        points: deltas[p.name] || 0,
+        chips: g.chip_rate ? chips[p.name] : null,
+      };
+    }),
+    events: describeEvents(g.data),
+  };
 }
 
-function summarize(history, targetId) {
-  const live = history.filter((g) => !g.undoneAt);
-  let wins = 0;
-  let points = 0;
-  let chips = 0;
-  for (const g of live) {
-    const me = g.players.find((p) => p.isTarget);
-    if (!me) continue;
-    if (me.place === 1) wins += 1;
-    points += me.points;
-    chips += me.chips || 0;
+function summarize(games) {
+  const stats = { games: 0, wins: 0, points: 0, chips: 0 };
+  for (const g of games) {
+    const me = g.players.find((p) => p.isMe);
+    if (g.undoneAt || !me) continue;
+    stats.games += 1;
+    if (me.place === 1) stats.wins += 1;
+    stats.points += me.points;
+    stats.chips += me.chips || 0;
   }
-  return { games: live.length, wins, points, chips, targetId };
+  return stats;
+}
+
+async function sessionHistory(userId) {
+  const { rows: sessions } = await pool.query(
+    `select s.id, s.name, s.created_at, s.chip_rate,
+            (s.leader_id = $1 or exists (select 1 from session_members m where m.session_id = s.id and m.user_id = $1)) as can_open
+     from tracker_sessions s
+     where exists (select 1 from session_players p where p.session_id = s.id and p.user_id = $1)`,
+    [userId],
+  );
+  if (!sessions.length) return [];
+
+  const ids = sessions.map((s) => s.id);
+  const [players, games] = await Promise.all([
+    pool.query(
+      'select session_id, name, user_id from session_players where session_id = any($1) order by position',
+      [ids],
+    ),
+    pool.query(
+      `select id, session_id, data, rules, chip_rate, created_at, undone_at, recorded_by, undone_by
+       from games where session_id = any($1) order by created_at desc`,
+      [ids],
+    ),
+  ]);
+  const peopleIds = [...new Set(games.rows.flatMap((g) => [g.recorded_by, g.undone_by]).filter(Boolean))];
+  const people = await pool.query(
+    `select u.id, coalesce(pr.display_name, u.name) as name from "user" u left join profiles pr on pr.user_id = u.id
+     where u.id = any($1)`,
+    [peopleIds],
+  );
+
+  const nameOf = Object.fromEntries(people.rows.map((p) => [p.id, p.name]));
+  const seatsBySession = {};
+  for (const p of players.rows) (seatsBySession[p.session_id] ||= []).push(p);
+  const gamesBySession = {};
+  for (const g of games.rows) (gamesBySession[g.session_id] ||= []).push(g);
+
+  return sessions
+    .map((s) => {
+      const seats = seatsBySession[s.id] || [];
+      const list = (gamesBySession[s.id] || []).map((g) => gameView(g, seats, userId, nameOf));
+      return {
+        id: s.id,
+        name: s.name,
+        createdAt: s.created_at,
+        canOpen: s.can_open,
+        chipRate: s.chip_rate,
+        lastPlayedAt: list[0]?.at || null,
+        players: seats.map((p) => p.name),
+        stats: summarize(list),
+        games: list,
+      };
+    })
+    .sort((a, b) => new Date(b.lastPlayedAt || b.createdAt) - new Date(a.lastPlayedAt || a.createdAt));
 }
 
 const router = express.Router();
@@ -244,7 +229,7 @@ router.get('/me/export', handle(async (req, res) => {
        from "session" where "userId" = $1 order by "createdAt"`,
       [user.id],
     ),
-    gameHistory(user.id, user.id, 100000),
+    sessionHistory(user.id),
   ]);
   const data = {
     exportedAt: new Date().toISOString(),
@@ -264,7 +249,7 @@ router.get('/me/export', handle(async (req, res) => {
     },
     chipBalance: await getBalance(user.id),
     sessions: sessions.rows,
-    games: history,
+    games: history.flatMap((s) => s.games.map((g) => ({ sessionId: s.id, sessionName: s.name, ...g }))),
     chipHistory: ledger.rows,
     loginSessions: logins.rows,
   };
@@ -315,25 +300,24 @@ router.get('/users/:id', handle(async (req, res) => {
   if (!profile) return res.status(404).json({ error: 'This profile does not exist.' });
   const isMe = viewer?.id === profile.id;
   if (profile.privateProfile && !isMe) return res.status(403).json({ error: 'This profile is private.' });
-  const history = await gameHistory(profile.id, viewer?.id || null);
-  res.json({
+  const base = {
     id: profile.id,
     name: profile.name,
     image: profile.image,
     joinedAt: profile.createdAt,
     isMe,
     balance: isMe || !profile.hideFromLeaderboard ? await getBalance(profile.id) : null,
-    stats: summarize(history, profile.id),
-    games: history,
-    chipHistory: isMe
-      ? (await pool.query(
-        `select l.amount, l.reason, l.session_id, l.game_id, l.created_at, s.name as session_name
-         from chip_ledger l left join tracker_sessions s on s.id = l.session_id
-         where l.user_id = $1 order by l.created_at desc limit 300`,
-        [profile.id],
-      )).rows
-      : undefined,
-  });
+  };
+  if (!isMe) return res.json(base);
+  const [sessions, chipHistory] = await Promise.all([
+    sessionHistory(profile.id),
+    pool.query(
+      `select amount, reason, created_at from chip_ledger
+       where user_id = $1 and session_id is null order by created_at desc limit 300`,
+      [profile.id],
+    ),
+  ]);
+  res.json({ ...base, sessions, chipHistory: chipHistory.rows });
 }));
 
 router.get('/leaderboard', handle(async (req, res) => {
@@ -344,7 +328,7 @@ router.get('/leaderboard', handle(async (req, res) => {
             coalesce(sum(l.amount), 0)::int as balance
      from "user" u
      left join profiles pr on pr.user_id = u.id
-     left join chip_ledger l on l.user_id = u.id
+     left join chip_ledger l on l.user_id = u.id and l.session_id is null
      where pr.terms_accepted_at is not null and not pr.hide_from_leaderboard
      group by u.id, pr.display_name, pr.hide_avatar, pr.private_profile
      order by balance desc, name

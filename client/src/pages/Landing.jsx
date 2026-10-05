@@ -336,7 +336,7 @@ function Leaderboard() {
   return (
     <section className="lp-section" id="leaderboard">
       <h2 className="lp-h2">Chip leaders</h2>
-      <p className="lp-lead">Everyone starts with 1,000 chips. Tracked games move chips between the players at the table.</p>
+      <p className="lp-lead">Everyone starts with 1,000 chips. Online Quick Match games move them. Score tracker sessions are private and don't count.</p>
       {failed && <p className="lp-text">The leaderboard couldn't load because the server isn't reachable. Try again in a minute.</p>}
       {!failed && rows === null && <p className="lp-text lp-muted">Loading the leaderboard...</p>}
       {rows?.length === 0 && (

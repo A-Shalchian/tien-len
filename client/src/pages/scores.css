@@ -576,3 +576,76 @@
 .pf-danger .st-btn-danger {
   margin-top: 0;
 }
+
+.pf-session {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pf-session-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pf-session-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-caret {
+  flex-shrink: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: #888;
+  transition: transform 0.15s;
+}
+
+.pf-caret-open {
+  transform: rotate(90deg);
+}
+
+.pf-session-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 6px;
+}
+
+.pf-session-stats .pf-stat {
+  padding: 8px 10px;
+  background: #1f1f1f;
+}
+
+.pf-session-stats .pf-stat dd {
+  font-size: 1rem;
+}
+
+.pf-session-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pf-game {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid #333;
+}
+
+.pf-undone-toggle {
+  margin-left: 0;
+}

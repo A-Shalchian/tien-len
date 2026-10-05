@@ -75,21 +75,17 @@ export default function Privacy() {
       <h2 className="lp-h3">What other people can see</h2>
       <ul className="lp-list">
         <li>
-          <strong>Your public profile</strong> at /u/your-id shows your display name, photo, join date, chip balance, stats
-          and the games you played, including the other players' names and scores. Turn on "Make my profile private" in
-          settings to hide it.
+          <strong>Your public profile</strong> at /u/your-id shows your display name, photo, join date and chip balance.
+          Turn on "Make my profile private" in settings to hide it.
         </li>
         <li>
           <strong>The chip leaderboard</strong> on the home page shows your display name, photo and chip balance. You can
           leave it in settings.
         </li>
         <li>
-          <strong>On other people's public profiles</strong>, your player name appears in games you played together. If
-          your profile is private, or you're a guest without an account, it shows as "Player 1", "Player 2" and so on.
-        </li>
-        <li>
-          <strong>Inside a session</strong>, its leader and everyone who joined with the invite link can see all players,
-          games and chips in that session.
+          <strong>Score tracker sessions are private.</strong> Only the leader and people who joined with the invite
+          link can see the players, games and chips in a session. Session games never show on public profiles, and
+          session chips never count toward your chip balance or the leaderboard.
         </li>
         <li>Your email address is never shown to anyone.</li>
       </ul>

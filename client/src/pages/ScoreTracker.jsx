@@ -140,7 +140,7 @@ function JoinView({ code, onJoined }) {
         <p className="st-muted">Every seat is taken.</p>
       )}
       <p className="st-small st-muted">
-        Picking a player links your account to it, so chips from this session's games go to you.
+        Picking a player links your account to it, so this session's games show up on your profile.
       </p>
       {error && <p className="st-error">{error}</p>}
       <button className="st-btn st-btn-ghost" disabled={busy} onClick={() => join(null)}>Just watch</button>
@@ -285,7 +285,7 @@ function NewSessionForm({ onCancel, onCreated }) {
           onChange={(e) => setChipRate(Math.max(0, Number(e.target.value)))}
         />
         <span className="st-small st-muted">
-          Chips move against the table average, so every game adds up to zero. Use 0 to only track points.
+          Chips move against the table average, so every game adds up to zero. They stay inside this session and never touch your chip balance. Use 0 to only track points.
         </span>
       </label>
 
@@ -466,7 +466,7 @@ function SessionView({ id, onBack }) {
 
       {isLeader && (
         <button className="st-btn st-btn-danger st-btn-block" onClick={deleteSession}>
-          {confirmDelete ? 'Tap again to delete this session and return its chips' : 'Delete session'}
+          {confirmDelete ? 'Tap again to delete this session' : 'Delete session'}
         </button>
       )}
     </>

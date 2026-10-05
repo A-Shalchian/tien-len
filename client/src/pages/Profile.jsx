@@ -7,8 +7,6 @@ import './scores.css';
 const REASONS = {
   signup: 'Welcome chips',
   daily: 'Daily top-up',
-  game: 'Game',
-  undo: 'Game undone or session deleted',
   admin: 'Adjustment',
   online: 'Online match',
 };
@@ -68,7 +66,7 @@ export default function Profile({ userId }) {
 function ProfileView({ id, me, onChanged }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [tab, setTab] = useState('games');
+  const [tab, setTab] = useState('sessions');
 
   const load = useCallback(() => {
     api(`/users/${id}`).then(setData).catch((e) => setError(e.message));
@@ -78,7 +76,8 @@ function ProfileView({ id, me, onChanged }) {
   if (error) return <p className="st-error">{error}</p>;
   if (!data) return <p className="st-muted">Loading profile...</p>;
 
-  const tabs = data.isMe ? ['games', 'chips', 'settings'] : ['games'];
+  const tabs = ['sessions', 'chips', 'settings'];
+  const tabLabels = { sessions: 'Sessions', chips: 'Chip history', settings: 'Settings' };
 
   return (
     <>
@@ -96,33 +95,33 @@ function ProfileView({ id, me, onChanged }) {
         </div>
       </header>
 
-      <dl className="pf-stats">
-        {data.balance !== null && <Stat label="Chips" value={data.balance.toLocaleString()} />}
-        <Stat label="Games" value={data.stats.games} />
-        <Stat label="Wins" value={data.stats.wins} />
-        <Stat label="Points" value={formatDelta(data.stats.points)} />
-        <Stat label="Chips from games" value={formatDelta(data.stats.chips)} />
-      </dl>
-
-      {tabs.length > 1 && (
-        <div className="pf-tabs" role="tablist">
-          {tabs.map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={tab === t}
-              className={`st-chip ${tab === t ? 'st-chip-on' : ''}`}
-              onClick={() => setTab(t)}
-            >
-              {t === 'games' ? 'Games' : t === 'chips' ? 'Chip history' : 'Settings'}
-            </button>
-          ))}
-        </div>
+      {data.balance !== null && (
+        <dl className="pf-stats">
+          <Stat label="Chips" value={data.balance.toLocaleString()} />
+        </dl>
       )}
 
-      {tab === 'games' && <GameList games={data.games} isMe={data.isMe} />}
-      {tab === 'chips' && <ChipHistory rows={data.chipHistory} />}
-      {tab === 'settings' && <Settings me={me} onSaved={() => { onChanged(); load(); }} />}
+      {data.isMe && (
+        <>
+          <div className="pf-tabs" role="tablist">
+            {tabs.map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={tab === t}
+                className={`st-chip ${tab === t ? 'st-chip-on' : ''}`}
+                onClick={() => setTab(t)}
+              >
+                {tabLabels[t]}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'sessions' && <SessionList sessions={data.sessions} />}
+          {tab === 'chips' && <ChipHistory rows={data.chipHistory} />}
+          {tab === 'settings' && <Settings me={me} onSaved={() => { onChanged(); load(); }} />}
+        </>
+      )}
     </>
   );
 }
@@ -136,38 +135,81 @@ function Stat({ label, value }) {
   );
 }
 
-function GameList({ games, isMe }) {
-  if (!games.length) {
-    return (
-      <p className="st-muted">
-        {isMe ? 'No games yet. Games appear here once you are linked to a player in a session.' : 'No games yet.'}
-      </p>
-    );
+function tone(n) {
+  return n > 0 ? 'st-pos' : n < 0 ? 'st-neg' : 'st-muted';
+}
+
+function SessionList({ sessions }) {
+  if (!sessions.length) {
+    return <p className="st-muted">No sessions yet. They show up here once you're linked to a player in one.</p>;
   }
   return (
-    <ul className="st-list">
-      {games.map((g) => <GameCard key={g.id} game={g} />)}
-    </ul>
+    <>
+      <p className="st-small st-muted">Only you can see these. Session games and chips stay inside each session.</p>
+      <ul className="st-list">
+        {sessions.map((s) => <SessionGroup key={s.id} session={s} />)}
+      </ul>
+    </>
   );
 }
 
-function GameCard({ game }) {
+function SessionGroup({ session }) {
+  const [open, setOpen] = useState(false);
+  const [showUndone, setShowUndone] = useState(false);
+  const live = session.games.filter((g) => !g.undoneAt);
+  const undoneCount = session.games.length - live.length;
+  const numbers = Object.fromEntries(live.map((g, i) => [g.id, live.length - i]));
+  const shown = showUndone ? session.games : live;
+  const { stats } = session;
+
+  return (
+    <li className="st-card pf-session">
+      <button className="pf-session-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="pf-session-title">
+          <span className="st-strong">{session.name}</span>
+          <span className="st-small st-muted">
+            {session.lastPlayedAt ? `Last played ${formatDate(session.lastPlayedAt)}` : 'No games yet'}
+            {' · '}
+            {session.players.join(', ')}
+          </span>
+        </span>
+        <span className={`pf-caret ${open ? 'pf-caret-open' : ''}`} aria-hidden="true">›</span>
+      </button>
+
+      <dl className="pf-session-stats">
+        <Stat label="Games" value={stats.games} />
+        <Stat label="Wins" value={stats.wins} />
+        <Stat label="Points" value={formatDelta(stats.points)} />
+        {session.chipRate > 0 && <Stat label="Chips" value={formatDelta(stats.chips)} />}
+      </dl>
+
+      {open && (
+        <div className="pf-session-body">
+          {session.canOpen && <a className="st-link" href={`/scores/${session.id}`}>Open session</a>}
+          {shown.length === 0 && <p className="st-small st-muted">No games recorded yet.</p>}
+          {shown.map((g) => <GameCard key={g.id} game={g} number={numbers[g.id]} />)}
+          {undoneCount > 0 && (
+            <button className="st-btn st-btn-ghost st-btn-sm pf-undone-toggle" onClick={() => setShowUndone(!showUndone)}>
+              {showUndone ? 'Hide undone games' : `Show undone games (${undoneCount})`}
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function GameCard({ game, number }) {
   const hasChips = game.players.some((p) => p.chips !== null);
   return (
-    <li className={`st-card st-game ${game.undoneAt ? 'pf-undone' : ''}`}>
+    <div className={`pf-game ${game.undoneAt ? 'pf-undone' : ''}`}>
       <div className="st-game-head">
-        {game.canOpenSession
-          ? <a className="st-strong st-link" href={`/scores/${game.sessionId}`}>{game.sessionName}</a>
-          : <span className="st-strong">{game.sessionName}</span>}
+        <span className="st-strong">{number ? `Game ${number}` : 'Undone game'}</span>
         <span className="st-small st-muted">{formatDate(game.at, true)}</span>
-      </div>
-      <div className="st-small st-muted">
-        Session {game.sessionId} · Game {game.id}
-        {game.recordedBy && ` · Recorded by ${game.recordedBy}`}
       </div>
       {game.undoneAt && (
         <div className="st-small pf-undone-note">
-          Undone{game.undoneBy ? ` by ${game.undoneBy}` : ''} on {formatDate(game.undoneAt, true)}. It no longer counts.
+          Undone by {game.undoneBy} on {formatDate(game.undoneAt, true)}. It no longer counts.
         </div>
       )}
       <table className="st-table pf-game-table">
@@ -181,17 +223,13 @@ function GameCard({ game }) {
         </thead>
         <tbody>
           {[...game.players].sort((a, b) => (a.place || 99) - (b.place || 99)).map((p) => (
-            <tr key={p.name} className={p.isTarget ? 'pf-target' : ''}>
+            <tr key={p.name} className={p.isMe ? 'pf-target' : ''}>
               <td className="st-left st-muted">{p.placeLabel || '-'}</td>
               <td className="st-left">
-                {p.userId && !p.isTarget ? <a className="st-link" href={`/u/${p.userId}`}>{p.name}</a> : p.name}
+                {p.userId && !p.isMe ? <a className="st-link" href={`/u/${p.userId}`}>{p.name}</a> : p.name}
               </td>
-              <td className={p.points > 0 ? 'st-pos' : p.points < 0 ? 'st-neg' : 'st-muted'}>{formatDelta(p.points)}</td>
-              {hasChips && (
-                <td className={p.chips > 0 ? 'st-pos' : p.chips < 0 ? 'st-neg' : 'st-muted'}>
-                  {p.chips === null ? '-' : formatDelta(p.chips)}
-                </td>
-              )}
+              <td className={tone(p.points)}>{formatDelta(p.points)}</td>
+              {hasChips && <td className={tone(p.chips)}>{p.chips === null ? '-' : formatDelta(p.chips)}</td>}
             </tr>
           ))}
         </tbody>
@@ -201,7 +239,8 @@ function GameCard({ game }) {
           {game.events.map((e) => <li key={e}>{e}</li>)}
         </ul>
       )}
-    </li>
+      <div className="st-small st-muted">Recorded by {game.recordedBy}</div>
+    </div>
   );
 }
 
@@ -221,15 +260,7 @@ function ChipHistory({ rows }) {
           {rows.map((r, i) => (
             <tr key={i}>
               <td className="st-left st-small st-muted">{formatDate(r.created_at, true)}</td>
-              <td className="st-left">
-                {REASONS[r.reason] || r.reason}
-                {r.session_name && (
-                  <span className="st-small st-muted st-link-note">
-                    <a className="st-link" href={`/scores/${r.session_id}`}>{r.session_name}</a>
-                    {r.game_id && ` · Game ${r.game_id}`}
-                  </span>
-                )}
-              </td>
+              <td className="st-left">{REASONS[r.reason] || r.reason}</td>
               <td className={r.amount > 0 ? 'st-pos' : 'st-neg'}>{formatDelta(r.amount)}</td>
             </tr>
           ))}
@@ -303,8 +334,7 @@ function Settings({ me, onSaved }) {
         <h2 className="st-h2">Privacy</h2>
         <label className="st-check st-check-left">
           <input type="checkbox" checked={privateProfile} onChange={(e) => setPrivateProfile(e.target.checked)} />
-          Make my profile private. Only I can see it, and my name is replaced with "Player 1", "Player 2" and so on
-          on other people's public profiles.
+          Make my profile private, so only I can see it
         </label>
         <label className="st-check st-check-left">
           <input

@@ -5,23 +5,28 @@ import MoneyDisplay from './MoneyDisplay.jsx';
 
 const BET_OPTIONS = [10, 25, 50, 100, 250, 500];
 
+const CHIP_RULES = [
+  ['Start', '1,000 chips, plus 100 a day while you have less'],
+  ['Bet', 'Everyone puts it in the pot. Winner takes it all'],
+  ['Cards left', 'Losers pay 1 chip per card, 5 per 2'],
+  ['Bombed 2', 'Pay the bet per black 2, double per red 2'],
+  ['Instant win', 'Winner takes the pot, no card penalties'],
+  ['Leaving', 'Mid-hand, you pay the bet plus your card penalty'],
+];
+
 function ChipInfo() {
   return (
-    <div className="chip-info">
-      <p>
-        <strong>Quick Match plays for the chips on your account.</strong> New accounts start with 1,000 chips.
-        If you have fewer than 1,000, you get 100 free chips each day you visit while signed in.
-      </p>
-      <ul>
-        <li>The bet is the ante. Every player puts it in the pot at the start of each hand, and the winner takes the pot.</li>
-        <li>Each loser also pays the winner 1 chip for every card left in their hand, or 5 chips for every 2.</li>
-        <li>If your 2 gets bombed, you pay the bomber the bet for each black 2 (♠ ♣) and double the bet for each red 2 (♥ ♦).</li>
-        <li>An instant win (four 2s or a 3 to A dragon) takes the pot with no card penalties.</li>
-        <li>You need at least the bet to join. If you drop below it between hands, you leave the table.</li>
-        <li>Leaving during a hand ends the match. You pay the bet plus the penalty for the cards in your hand. Nobody else pays for that hand.</li>
-      </ul>
-      <p>Rooms use practice chips. Everyone starts with 1,000 and nothing is saved to your account.</p>
-    </div>
+    <>
+      <dl className="chip-rules">
+        {CHIP_RULES.map(([label, text]) => (
+          <div key={label} className="chip-rule">
+            <dt>{label}</dt>
+            <dd>{text}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="chip-rules-note">Rooms use practice chips. Nothing is saved.</p>
+    </>
   );
 }
 

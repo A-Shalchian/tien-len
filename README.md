@@ -1,6 +1,6 @@
-# Tiên Lên
+# Tiến Lên
 
-I made this for playing Tiên Lên with my girlfriend Vy and her workmate Thư (aka clemenfahhh). We play in person a lot, and keeping score with pen and paper got old, so I built a score tracker for whenever we play.
+I made this for playing Tiến Lên with my girlfriend Vy and her workmate Thư (aka clemenfahhh). We play in person a lot, and keeping score with pen and paper got old, so I built a score tracker for whenever we play.
 
 Then I added an online version, so they can play on my site instead of on Facebook. With chips, so there's some gambling, haha.
 
@@ -99,3 +99,7 @@ The server needs a `server/.env` file:
 | `BETTER_AUTH_URL` | Public URL of the site, `http://localhost:5173` locally |
 
 The server creates its tables on startup.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

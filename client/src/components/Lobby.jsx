@@ -219,7 +219,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
 
   return (
     <div className="lobby">
-      <h1 className="lobby-title">Tiên Lên</h1>
+      <h1 className="lobby-title">Tiến Lên</h1>
       <p className="lobby-subtitle">Vietnamese Card Game</p>
 
       <div className={`lobby-form ${browsing ? 'lobby-form-wide' : ''}`}>

@@ -46,7 +46,6 @@ body {
   }
 }
 
-/* Lobby */
 .lobby {
   display: flex;
   flex-direction: column;
@@ -457,7 +456,6 @@ body {
   50% { opacity: 1; transform: scale(1.2); }
 }
 
-/* Buttons */
 .btn {
   display: block;
   width: 100%;
@@ -498,7 +496,6 @@ body {
   color: #ddd;
 }
 
-/* Game Layout */
 .game {
   display: flex;
   flex-direction: column;
@@ -532,7 +529,6 @@ body {
   opacity: 1;
 }
 
-/* Opponents Area */
 .opponents-area {
   display: flex;
   gap: 4px;
@@ -662,7 +658,6 @@ body {
   margin-bottom: 4px;
 }
 
-/* Table Area */
 .table-area {
   flex: 1;
   display: flex;
@@ -716,7 +711,6 @@ body {
   background: #1a2e1a;
 }
 
-/* Action Bar */
 .action-bar {
   display: flex;
   gap: 8px;
@@ -729,7 +723,6 @@ body {
   padding: 10px;
 }
 
-/* Emote Bar */
 .emote-bar-container {
   display: flex;
   align-items: center;
@@ -780,7 +773,6 @@ body {
   cursor: default;
 }
 
-/* Hand Area */
 .hand-area {
   padding: 4px 8px 12px;
   flex-shrink: 0;
@@ -828,7 +820,6 @@ body {
   margin-right: auto;
 }
 
-/* Card */
 .card {
   width: 44px;
   height: 62px;
@@ -919,7 +910,6 @@ body {
   color: #222;
 }
 
-/* Table card (slightly larger) */
 .table-cards .card {
   width: 48px;
   height: 68px;
@@ -931,7 +921,6 @@ body {
   margin-left: 0;
 }
 
-/* Money Display */
 .money {
   font-family: 'Courier New', monospace;
   font-size: 0.85rem;
@@ -951,7 +940,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Hand Over Overlay */
 .overlay {
   position: fixed;
   inset: 0;
@@ -1009,7 +997,6 @@ body {
   margin-bottom: auto;
 }
 
-/* Emote Overlay */
 .emote-overlay {
   position: fixed;
   left: 50%;
@@ -1031,7 +1018,6 @@ body {
   bottom: 200px;
 }
 
-/* Disconnected */
 .disconnected-overlay {
   position: fixed;
   inset: 0;
@@ -1062,7 +1048,6 @@ body {
   max-width: 240px;
 }
 
-/* Invalid play toast */
 .toast {
   position: fixed;
   bottom: 260px;
@@ -1083,16 +1068,6 @@ body {
   100% { opacity: 0; }
 }
 
-/* Waiting badge */
-.waiting-badge {
-  font-size: 0.75rem;
-  color: #777;
-  background: #2a2a2a;
-  padding: 4px 10px;
-  border-radius: 10px;
-}
-
-/* Deal Animation */
 .card.dealing {
   animation: dealIn 0.4s ease-out both;
 }
@@ -1108,7 +1083,6 @@ body {
   }
 }
 
-/* Play Animation (cards sliding to table) */
 .card.playing {
   animation: playCard 0.35s ease-in-out both;
 }
@@ -1124,7 +1098,6 @@ body {
   }
 }
 
-/* Win Confetti */
 .confetti-container {
   position: fixed;
   inset: 0;
@@ -1152,7 +1125,6 @@ body {
   }
 }
 
-/* Emote Bounce Animation (Feature 5) */
 @keyframes emoteBounceIn {
   0% {
     opacity: 0;
@@ -1221,7 +1193,6 @@ body {
   }
 }
 
-/* Desktop Responsive (Feature 4) */
 @media (min-width: 768px) {
   .game {
     max-width: 1200px;

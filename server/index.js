@@ -502,7 +502,7 @@ io.on('connection', (socket) => {
       const remainingHumans = room.players.filter(p => !p.isBot);
 
       if (remainingHumans.length === 0) {
-        console.log(`Room ${room.code} deleted — no humans left`);
+        console.log(`Room ${room.code} deleted, no humans left`);
       } else {
         for (const p of room.players) {
           if (p.id !== socket.id && !p.isBot) {

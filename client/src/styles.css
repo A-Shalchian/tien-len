@@ -61,9 +61,11 @@ body {
 }
 
 .lobby-title {
-  font-size: 2.4rem;
-  font-weight: 700;
-  letter-spacing: -1px;
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+  font-size: 2.8rem;
+  font-weight: 800;
+  font-variation-settings: 'wdth' 78, 'opsz' 96;
+  letter-spacing: -0.02em;
   color: #fff;
   margin-top: auto;
 }
@@ -1362,7 +1364,7 @@ body {
   }
 
   .lobby-title {
-    font-size: 3rem;
+    font-size: 3.6rem;
   }
 
   .btn:not(:disabled):hover {

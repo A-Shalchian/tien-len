@@ -349,14 +349,21 @@ function liveSnapshot() {
   return { rooms: roomList, queues };
 }
 
-function isUserBusy(userId) {
+const ALREADY_PLAYING = 'You are already in a Quick Match in another tab.';
+const STILL_FINISHING = 'The Quick Match you left is still finishing. Try again when that hand ends.';
+
+function busyReason(userId) {
   for (const queue of matchQueues.values()) {
-    if (queue.some((p) => p.userId === userId)) return true;
+    if (queue.some((p) => p.userId === userId)) return ALREADY_PLAYING;
   }
   for (const room of rooms.values()) {
-    if (room.ranked && room.game && room.players.some((p) => p.userId === userId && !p.left)) return true;
+    if (!room.ranked || !room.game) continue;
+    const seat = room.players.find((p) => p.userId === userId);
+    if (!seat) continue;
+    if (!seat.left) return ALREADY_PLAYING;
+    if (!room.game.handOver) return STILL_FINISHING;
   }
-  return false;
+  return null;
 }
 
 export {
@@ -364,5 +371,5 @@ export {
   getRoomBySocket, seatOf, getNicknames, getBotFlags, getAway, isAutoPlayed,
   leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, isUserBusy, closeRoom, liveSnapshot,
+  listOpenRooms, busyReason, closeRoom, liveSnapshot, STILL_FINISHING,
 };

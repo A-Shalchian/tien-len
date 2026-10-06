@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  rooms, createRoom, startManually, leaveSeat, closeIfAbandoned, REJOIN_GRACE_MS,
+  rooms, createRoom, startManually, leaveSeat, closeIfAbandoned, dropAwayPlayers,
+  joinMatchmaking, busyReason, STILL_FINISHING, REJOIN_GRACE_MS,
 } from './rooms.js';
-import { playCards, pass, mustPlay3S } from './game/engine.js';
+import { playCards, pass, mustPlay3S, dealHand } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
 
 function playOut(game) {
@@ -34,4 +35,17 @@ test('a dropped player keeps their seat until the hand ends, then the room close
   playOut(room.game);
   assert.equal(closeIfAbandoned(room), true);
   assert.equal(rooms.has(code), false);
+});
+
+test('leaving a Quick Match keeps you busy until that hand is over', () => {
+  joinMatchmaking({ socketId: 'q-1', userId: 'user-a', nickname: 'A' }, 10, 2, 1000);
+  const { room } = joinMatchmaking({ socketId: 'q-2', userId: 'user-b', nickname: 'B' }, 10, 2, 1000);
+  while (room.game.handOver) dealHand(room.game);
+
+  leaveSeat('q-1', { left: true });
+  assert.equal(busyReason('user-a'), STILL_FINISHING);
+
+  playOut(room.game);
+  dropAwayPlayers(room);
+  assert.equal(busyReason('user-a'), null);
 });

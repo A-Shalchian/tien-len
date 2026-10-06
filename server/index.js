@@ -8,7 +8,7 @@ import {
   getNicknames, getBotFlags, getAway, isAutoPlayed,
   leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, isUserBusy, closeRoom, liveSnapshot, REJOIN_GRACE_MS,
+  listOpenRooms, busyReason, closeRoom, liveSnapshot, STILL_FINISHING, REJOIN_GRACE_MS,
 } from './rooms.js';
 import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
@@ -61,6 +61,8 @@ app.use('/api/admin', createAdminRouter({
 app.use('/api', profileRouter);
 app.use('/api', scoresRouter);
 
+const savingHands = new Set();
+
 function saveOnlineHand(room, result) {
   const seats = room.game.players;
   const seatNumber = (id) => String(seats.indexOf(id));
@@ -78,7 +80,13 @@ function saveOnlineHand(room, result) {
     };
   });
   const hand = { id: crypto.randomBytes(6).toString('hex'), stake: room.stake, data: renamePlayers(data, seatNumber), players };
-  recordOnlineHand(hand).catch((err) => console.error('Failed to save online hand', err));
+  const userIds = players.map((p) => p.userId).filter(Boolean);
+  for (const id of userIds) savingHands.add(id);
+  recordOnlineHand(hand)
+    .catch((err) => console.error('Failed to save online hand', err))
+    .finally(() => {
+      for (const id of userIds) savingHands.delete(id);
+    });
 }
 
 function broadcastRoomList() {
@@ -434,8 +442,9 @@ io.on('connection', (socket) => {
       socket.emit('match-error', { error: `You need at least ${minBalance(stake)} chips for this stake. You have ${balance}.` });
       return;
     }
-    if (isUserBusy(player.userId)) {
-      socket.emit('match-error', { error: 'You are already in a Quick Match in another tab.' });
+    const busy = busyReason(player.userId) || (savingHands.has(player.userId) ? STILL_FINISHING : null);
+    if (busy) {
+      socket.emit('match-error', { error: busy });
       return;
     }
 

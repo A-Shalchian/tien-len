@@ -16,6 +16,7 @@ export default {
   'Accept the terms to play Quick Match.': 'Đồng ý điều khoản để chơi Ghép trận nhanh.',
   'Could not load your chips. Try again.': 'Không tải được số chip của bạn. Thử lại nhé.',
   'You are already in a Quick Match in another tab.': 'Bạn đang chơi Ghép trận nhanh ở tab khác rồi.',
+  'The Quick Match you left is still finishing. Try again when that hand ends.': 'Trận Ghép trận nhanh bạn vừa rời vẫn đang chơi nốt. Thử lại khi ván đó kết thúc nhé.',
   'Not enough players to continue': 'Không đủ người chơi để tiếp tục',
   'An admin closed this room.': 'Quản trị viên đã đóng phòng này.',
   'That room is already closed.': 'Phòng này đã đóng rồi.',

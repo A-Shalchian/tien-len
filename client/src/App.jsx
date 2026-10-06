@@ -8,7 +8,6 @@ import Privacy from './pages/Privacy.jsx';
 import Terms from './pages/Terms.jsx';
 import Profile from './pages/Profile.jsx';
 import Admin from './pages/Admin.jsx';
-import NotFound from './pages/NotFound.jsx';
 import NavBar from './components/NavBar.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
@@ -17,19 +16,16 @@ function getRoomCodeFromURL() {
   return match ? match[1].toUpperCase() : null;
 }
 
-const SCORES_PATH = /^\/scores(\/join\/[a-f0-9]+|\/[a-f0-9]+)?$/;
-
 function Page({ path }) {
   if (path === '/' || path === '') return <Landing />;
   if (path === '/privacy') return <Privacy />;
   if (path === '/terms') return <Terms />;
-  if (SCORES_PATH.test(path)) return <ScoreTracker />;
+  if (path.startsWith('/scores')) return <ScoreTracker />;
   if (path === '/profile') return <Profile />;
   if (path === '/admin') return <Admin />;
   const profileMatch = path.match(/^\/u\/([A-Za-z0-9_-]+)$/);
   if (profileMatch) return <Profile userId={profileMatch[1]} />;
-  if (path === '/play' || getRoomCodeFromURL()) return <GameApp />;
-  return <NotFound />;
+  return <GameApp />;
 }
 
 const DARK_PAGES = ['/play'];

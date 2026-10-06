@@ -10,7 +10,8 @@ const rooms = new Map();
 const socketToRoom = new Map();
 
 function sanitizeNickname(name) {
-  return String(name ?? '').replace(/[<>&"'/]/g, '').trim().slice(0, 20) || 'Player';
+  const raw = typeof name === 'string' ? name : '';
+  return raw.replace(/[<>&"'/]/g, '').trim().slice(0, 20) || 'Player';
 }
 
 function generateCode() {

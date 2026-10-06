@@ -106,9 +106,10 @@ function playCards(game, playerId, cardIds) {
   if (game.handOver) return { error: 'The hand is over' };
   if (game.turn !== playerId) return { error: 'Not your turn' };
 
+  if (!Array.isArray(cardIds)) return { error: 'Those cards are not in your hand' };
   const hand = game.hands[playerId];
   const cards = [];
-  for (const id of cardIds || []) {
+  for (const id of cardIds) {
     const card = hand.find((c) => c.id === id);
     if (!card || cards.includes(card)) return { error: 'Those cards are not in your hand' };
     cards.push(card);

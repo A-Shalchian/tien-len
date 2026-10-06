@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, getMe, signIn, signOut } from '../utils/api.js';
+import { api, getMe, signIn } from '../utils/api.js';
 import { formatDelta } from '../utils/scoring.js';
 import { useLang } from '../i18n/index.jsx';
 import { formatDateTime, gameEvents, placeName } from '../i18n/describe.js';
@@ -61,7 +61,10 @@ function ProfileView({ id, me, onChanged }) {
   const { t, locale } = useLang();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [tab, setTab] = useState('sessions');
+  const [tab, setTab] = useState(() => {
+    const wanted = new URLSearchParams(window.location.search).get('tab');
+    return ['online', 'chips', 'settings'].includes(wanted) ? wanted : 'sessions';
+  });
 
   const load = useCallback(() => {
     api(`/users/${id}`).then(setData).catch((e) => setError(e.message));
@@ -85,9 +88,6 @@ function ProfileView({ id, me, onChanged }) {
             {data.isMe && me.profile.privateProfile && ` · ${t('Your profile is private')}`}
             {data.isMe && !me.profile.privateProfile && (
               <> · <a className="st-link" href={`/u/${data.id}`}>{t('Public view')}</a></>
-            )}
-            {data.isMe && (
-              <> · <button type="button" className="pf-signout" onClick={signOut}>{t('Sign out')}</button></>
             )}
           </p>
         </div>

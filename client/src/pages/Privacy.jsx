@@ -1,6 +1,5 @@
 import { CONTACT_EMAIL, LEGAL_UPDATED, MIN_AGE } from '../utils/site.js';
 import { useLang } from '../i18n/index.jsx';
-import LanguageToggle from '../components/LanguageToggle.jsx';
 import './landing.css';
 
 export function LegalPage({ title, lead, children }) {
@@ -10,10 +9,8 @@ export function LegalPage({ title, lead, children }) {
     <div className="lp">
       <main className="lp-page">
         <nav className="lp-legal-nav">
-          <a className="lp-inline-link" href="/">{t('Home')}</a>
           <a className="lp-inline-link" href="/privacy">{t('Privacy policy')}</a>
           <a className="lp-inline-link" href="/terms">{t('Terms of use')}</a>
-          <LanguageToggle className="lp-lang" />
         </nav>
         <h1 className="lp-h2 lp-legal-title">{title}</h1>
         <p className="lp-lead">{lead}</p>

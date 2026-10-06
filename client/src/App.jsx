@@ -15,6 +15,9 @@ function getRoomCodeFromURL() {
 }
 
 function Page({ path }) {
+  if (path === '/' || path === '') return <Landing />;
+  if (path === '/privacy') return <Privacy />;
+  if (path === '/terms') return <Terms />;
   if (path.startsWith('/scores')) return <ScoreTracker />;
   if (path === '/profile') return <Profile />;
   const profileMatch = path.match(/^\/u\/([A-Za-z0-9_-]+)$/);
@@ -22,14 +25,13 @@ function Page({ path }) {
   return <GameApp />;
 }
 
+const LACQUER_PAGES = ['/', '', '/privacy', '/terms'];
+
 export default function App() {
   const path = window.location.pathname;
-  if (path === '/' || path === '') return <Landing />;
-  if (path === '/privacy') return <Privacy />;
-  if (path === '/terms') return <Terms />;
   return (
     <div className="app-shell">
-      <NavBar path={path} />
+      <NavBar path={path} theme={LACQUER_PAGES.includes(path) ? 'lacquer' : 'dark'} />
       <main className="app-main">
         <Page path={path} />
       </main>

@@ -5,6 +5,8 @@ export default {
   Profile: 'Hồ sơ',
   'Sign in with Google': 'Đăng nhập bằng Google',
   'Sign in': 'Đăng nhập',
+  'Account menu': 'Menu tài khoản',
+  'Online games': 'Ván trực tuyến',
   'Sign out': 'Đăng xuất',
   Back: 'Quay lại',
   'Loading...': 'Đang tải...',

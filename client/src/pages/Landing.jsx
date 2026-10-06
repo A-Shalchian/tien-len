@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_PLACE_POINTS, DEFAULT_PENALTIES } from '../utils/scoring.js';
-import { api, getMe, signIn } from '../utils/api.js';
+import { api } from '../utils/api.js';
 import { useLang } from '../i18n/index.jsx';
-import LanguageToggle from '../components/LanguageToggle.jsx';
 import './landing.css';
 
 const SEATS = [
@@ -367,35 +366,12 @@ function Leaderboard() {
   );
 }
 
-function AccountLink() {
-  const { t, locale } = useLang();
-  const [me, setMe] = useState(null);
-  useEffect(() => {
-    getMe().then(setMe).catch(() => setMe(null));
-  }, []);
-  if (!me) return null;
-  if (!me.user) {
-    return (
-      <button className="lp-account" onClick={() => signIn('/scores')}>{t('Sign in')}</button>
-    );
-  }
-  return (
-    <a className="lp-account" href="/profile">
-      {me.user.name} · {t('{n} chips', { n: me.balance.toLocaleString(locale) })}
-    </a>
-  );
-}
-
 export default function Landing() {
   const { t } = useLang();
   return (
     <div className="lp">
       <header className="lp-hero">
         <DealingTable />
-        <div className="lp-top">
-          <AccountLink />
-          <LanguageToggle className="lp-lang" />
-        </div>
         <div className="lp-hero-copy">
           <h1 className="lp-title">Tiến Lên</h1>
           <p className="lp-tagline">

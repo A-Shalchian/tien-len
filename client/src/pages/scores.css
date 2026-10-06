@@ -723,12 +723,3 @@
 .tc-h2h th {
   white-space: nowrap;
 }
-
-.pf-signout {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #8ab4f8;
-  font: inherit;
-  cursor: pointer;
-}

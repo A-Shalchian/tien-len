@@ -1,8 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+export default defineConfig(({ isSsrBuild }) => ({
   plugins: [react()],
+  build: {
+    manifest: !isSsrBuild,
+  },
   server: {
     port: 5173,
     host: true,
@@ -11,4 +14,4 @@ export default defineConfig({
       '/socket.io': { target: 'http://localhost:3001', ws: true },
     },
   },
-});
+}));

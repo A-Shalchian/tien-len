@@ -254,18 +254,31 @@ function isFile(root, pathname) {
   }
 }
 
-export function createSeo(clientDist, { origin } = {}) {
+export function createSeo(clientDist, { origin, pagesDir } = {}) {
   const root = path.resolve(clientDist);
   const indexFile = path.join(root, 'index.html');
-  let template = { mtime: 0, html: null };
-  const loadTemplate = () => {
+  const pages = path.resolve(pagesDir ?? path.join(root, '..', 'dist-ssr', 'pages'));
+  const templates = new Map();
+
+  const readTemplate = (file) => {
     try {
-      const { mtimeMs } = statSync(indexFile);
-      if (mtimeMs !== template.mtime) template = { mtime: mtimeMs, html: readFileSync(indexFile, 'utf8') };
+      const { mtimeMs } = statSync(file);
+      const cached = templates.get(file);
+      if (cached?.mtime === mtimeMs) return cached;
+      const entry = { mtime: mtimeMs, html: readFileSync(file, 'utf8') };
+      templates.set(file, entry);
+      return entry;
     } catch {
-      template = { mtime: 0, html: null };
+      templates.delete(file);
+      return null;
     }
-    return template.html;
+  };
+
+  const loadTemplate = (page, pathname) => {
+    const shell = readTemplate(indexFile);
+    if (!shell || !page?.base) return shell?.html ?? null;
+    const prerendered = readTemplate(path.join(pages, `${pathname === '/' ? 'index' : pathname.slice(1)}.html`));
+    return prerendered && prerendered.mtime >= shell.mtime ? prerendered.html : shell.html;
   };
 
   return (req, res, next) => {
@@ -286,6 +299,10 @@ export function createSeo(clientDist, { origin } = {}) {
       return res.set('Cache-Control', 'public, max-age=3600').type('application/xml').send(sitemapXml(site));
     }
 
+    if (pathname.split('/').some((part) => part.startsWith('.'))) {
+      return res.status(404).set('Cache-Control', 'no-store').type('text/plain').send('Not found');
+    }
+
     const page = findPage(pathname);
     if (!page && path.extname(pathname)) {
       if (!isFile(root, pathname)) return res.status(404).set('Cache-Control', 'no-store').type('text/plain').send('Not found');
@@ -294,7 +311,7 @@ export function createSeo(clientDist, { origin } = {}) {
       return next();
     }
 
-    const html = loadTemplate();
+    const html = loadTemplate(page, pathname);
     if (!html) return next();
     if (!page) res.set('X-Robots-Tag', 'noindex');
     res.set('Cache-Control', 'no-cache');

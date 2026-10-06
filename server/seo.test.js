@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync, statSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import express from 'express';
@@ -21,18 +21,20 @@ const TEMPLATE = `<!DOCTYPE html>
 </html>`;
 
 let dist;
+let pages;
 let server;
 let base;
 
 before(async () => {
   dist = mkdtempSync(path.join(tmpdir(), 'seo-test-'));
+  pages = mkdtempSync(path.join(tmpdir(), 'seo-pages-'));
   writeFileSync(path.join(dist, 'index.html'), TEMPLATE);
   writeFileSync(path.join(dist, 'sw.js'), 'self');
   mkdirSync(path.join(dist, 'assets'));
   writeFileSync(path.join(dist, 'assets', 'index-abc.js'), 'console');
 
   const app = express();
-  app.use(createSeo(dist, { origin: ORIGIN }));
+  app.use(createSeo(dist, { origin: ORIGIN, pagesDir: pages }));
   app.use(express.static(dist, { index: false }));
   app.get('/api/thing', (req, res) => res.json({ ok: true }));
   server = app.listen(0);
@@ -43,6 +45,7 @@ before(async () => {
 after(() => {
   server.close();
   rmSync(dist, { recursive: true, force: true });
+  rmSync(pages, { recursive: true, force: true });
 });
 
 const get = (p) => fetch(base + p, { redirect: 'manual' });
@@ -207,6 +210,29 @@ test('a rebuilt index.html is picked up without a restart', async () => {
   utimesSync(file, later, later);
   assert.match(await (await get('/')).text(), /data-build="2"/);
   writeFileSync(file, TEMPLATE);
+});
+
+test('prerendered pages are served when they are newer than the app shell', async () => {
+  const shellTime = statSync(path.join(dist, 'index.html')).mtime.getTime();
+  mkdirSync(path.join(pages, 'vi'), { recursive: true });
+  const fresh = path.join(pages, 'vi', 'rules.html');
+  writeFileSync(fresh, TEMPLATE.replace('<div id="root"></div>', '<div id="root" data-prerendered="/vi/rules"><h1>Luật</h1></div>'));
+  utimesSync(fresh, new Date(shellTime + 10000), new Date(shellTime + 10000));
+  const html = await (await get('/vi/rules')).text();
+  assert.match(html, /data-prerendered="\/vi\/rules"><h1>Luật<\/h1>/);
+  assert.match(html, /<title>Luật chơi Tiến Lên miền Nam/);
+  assert.match(html, /<html lang="vi">/);
+
+  const stale = path.join(pages, 'privacy.html');
+  writeFileSync(stale, TEMPLATE.replace('<div id="root"></div>', '<div id="root" data-prerendered="/privacy">old</div>'));
+  utimesSync(stale, new Date(shellTime - 10000), new Date(shellTime - 10000));
+  assert.match(await (await get('/privacy')).text(), /<div id="root"><\/div>/);
+});
+
+test('paths with dot segments return 404', async () => {
+  for (const p of ['/.vite/manifest.json', '/.env', '/.git/config']) {
+    assert.equal((await get(p)).status, 404, p);
+  }
 });
 
 test('api responses are noindex and pass through untouched', async () => {

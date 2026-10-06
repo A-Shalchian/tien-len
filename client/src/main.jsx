@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import { LanguageProvider } from './i18n/index.jsx';
+import './fonts.css';
 import './styles.css';
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

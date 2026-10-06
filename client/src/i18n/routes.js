@@ -1,4 +1,4 @@
-export const PUBLIC_PATHS = ['/', '/play', '/scores', '/privacy', '/terms'];
+export const PUBLIC_PATHS = ['/', '/play', '/scores', '/rules', '/privacy', '/terms'];
 
 export function splitPath(pathname) {
   const match = pathname.match(/^\/vi(\/.*)?$/);

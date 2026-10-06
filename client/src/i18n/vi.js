@@ -1,5 +1,6 @@
 import common from './vi/common.js';
 import landing from './vi/landing.js';
+import rules from './vi/rules.js';
 import legal from './vi/legal.js';
 import tracker from './vi/tracker.js';
 import profile from './vi/profile.js';
@@ -12,6 +13,7 @@ export const viPatterns = patterns;
 export default {
   ...server,
   ...landing,
+  ...rules,
   ...legal,
   ...tracker,
   ...profile,

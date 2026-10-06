@@ -37,6 +37,16 @@ const PUBLIC_PAGES = {
       description: 'Ghi điểm khi chơi tiến lên với bạn bè và gia đình. Lưu từng ván, chặt heo, thối heo, rồi gửi link để cả bàn cùng xem tổng điểm.',
     },
   },
+  '/rules': {
+    en: {
+      title: `How to play ${SITE} | Rules, chops and glossary`,
+      description: `${SITE} rules in plain English: card ranks, every play you can make, chopping 2s with bombs, instant wins and a glossary of terms like heo, chặt and cóng.`,
+    },
+    vi: {
+      title: `Luật chơi ${SITE} miền Nam | Cách chơi và thuật ngữ`,
+      description: 'Luật tiến lên miền Nam đầy đủ: thứ tự lá bài, các bộ được đánh, chặt heo, tới trắng, thối heo, cóng và giải thích các thuật ngữ thường gặp.',
+    },
+  },
   '/privacy': {
     en: {
       title: `Privacy policy | ${SITE}`,

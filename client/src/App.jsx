@@ -9,6 +9,7 @@ const GameApp = lazy(() => import('./GameApp.jsx'));
 const ScoreTracker = lazy(() => import('./pages/ScoreTracker.jsx'));
 const Privacy = lazy(() => import('./pages/Privacy.jsx'));
 const Terms = lazy(() => import('./pages/Terms.jsx'));
+const Rules = lazy(() => import('./pages/Rules.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
 const Admin = lazy(() => import('./pages/Admin.jsx'));
 
@@ -19,6 +20,7 @@ function Page({ path }) {
   if (path === '/' || path === '') return <Landing />;
   if (path === '/privacy') return <Privacy />;
   if (path === '/terms') return <Terms />;
+  if (path === '/rules') return <Rules />;
   if (SCORES_PATH.test(path)) return <ScoreTracker />;
   if (path === '/profile') return <Profile />;
   if (path === '/admin') return <Admin />;

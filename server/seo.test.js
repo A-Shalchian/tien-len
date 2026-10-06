@@ -64,7 +64,7 @@ test('home page gets its own title, canonical, social tags and JSON-LD', async (
 
 test('each public page has a unique title and a self canonical', async () => {
   const titles = new Set();
-  for (const p of ['/play', '/scores', '/privacy', '/terms']) {
+  for (const p of ['/play', '/scores', '/rules', '/privacy', '/terms']) {
     const res = await get(p);
     const html = await res.text();
     assert.equal(res.status, 200, p);
@@ -73,7 +73,7 @@ test('each public page has a unique title and a self canonical', async () => {
     assert.doesNotMatch(html, /ld\+json/, p);
     titles.add(html.match(/<title>(.*?)<\/title>/)[1]);
   }
-  assert.equal(titles.size, 4);
+  assert.equal(titles.size, 5);
 });
 
 test('game pages keep zoom locked and use the dark theme color', async () => {
@@ -155,12 +155,13 @@ test('robots.txt and sitemap.xml use the configured origin', async () => {
   assert.match(sitemap.headers.get('content-type'), /application\/xml/);
   const locs = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
   assert.deepEqual(locs, [
-    '/', '/vi', '/play', '/vi/play', '/scores', '/vi/scores', '/privacy', '/vi/privacy', '/terms', '/vi/terms',
+    '/', '/vi', '/play', '/vi/play', '/scores', '/vi/scores', '/rules', '/vi/rules',
+    '/privacy', '/vi/privacy', '/terms', '/vi/terms',
   ].map((p) => ORIGIN + p));
 });
 
 test('vietnamese pages have their own URL, title, language and canonical', async () => {
-  for (const p of ['/vi', '/vi/play', '/vi/scores', '/vi/privacy', '/vi/terms']) {
+  for (const p of ['/vi', '/vi/play', '/vi/scores', '/vi/rules', '/vi/privacy', '/vi/terms']) {
     const res = await get(p);
     const html = await res.text();
     assert.equal(res.status, 200, p);

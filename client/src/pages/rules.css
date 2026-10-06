@@ -1,0 +1,30 @@
+.rl-glossary {
+  margin-top: 12px;
+  max-width: 38rem;
+  display: grid;
+  gap: 10px;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.rl-glossary div {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: 16px;
+}
+
+.rl-glossary dt {
+  color: var(--egg);
+  font-weight: 600;
+}
+
+.rl-glossary dd {
+  color: rgba(241, 230, 208, 0.84);
+}
+
+@media (max-width: 480px) {
+  .rl-glossary div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

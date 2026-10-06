@@ -58,7 +58,7 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function PlayingCard({ rank, suit, className = '' }) {
+export function PlayingCard({ rank, suit, className = '' }) {
   return (
     <span className={`lp-face ${RED_SUITS.has(suit) ? 'lp-red' : ''} ${className}`}>
       <span className="lp-corner">{rank}<br />{suit}</span>
@@ -226,7 +226,7 @@ function DealingTable() {
   );
 }
 
-function MiniHand({ cards }) {
+export function MiniHand({ cards }) {
   return (
     <span className="lp-mini-hand">
       {cards.map(([rank, suit], i) => (
@@ -248,7 +248,7 @@ const PLAYS = [
 ];
 
 function HowToPlay() {
-  const { t } = useLang();
+  const { t, href } = useLang();
   return (
     <section className="lp-section" id="how-to-play">
       <h2 className="lp-h2">{t('How to play')}</h2>
@@ -293,6 +293,9 @@ function HowToPlay() {
       <h3 className="lp-h3">{t('Who starts')}</h3>
       <p className="lp-text">
         {t('Whoever holds the 3♠ leads the first game. After that, the last winner leads.')}
+      </p>
+      <p className="lp-text">
+        <a className="lp-inline-link" href={href('/rules')}>{t('Full rules and glossary')}</a>
       </p>
     </section>
   );
@@ -395,7 +398,8 @@ export default function Landing() {
       </div>
 
       <footer className="lp-footer">
-        {t('Made for our games with Vy and Thư.')} <a className="lp-inline-link" href={href('/privacy')}>{t('Privacy')}</a>{' '}
+        {t('Made for our games with Vy and Thư.')} <a className="lp-inline-link" href={href('/rules')}>{t('Rules')}</a>{' '}
+        <a className="lp-inline-link" href={href('/privacy')}>{t('Privacy')}</a>{' '}
         <a className="lp-inline-link" href={href('/terms')}>{t('Terms')}</a>
       </footer>
     </div>

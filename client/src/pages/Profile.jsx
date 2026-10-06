@@ -76,8 +76,8 @@ function ProfileView({ id, me, onChanged }) {
   if (error) return <p className="st-error">{error}</p>;
   if (!data) return <p className="st-muted">Loading profile...</p>;
 
-  const tabs = ['sessions', 'chips', 'settings'];
-  const tabLabels = { sessions: 'Sessions', chips: 'Chip history', settings: 'Settings' };
+  const tabs = ['sessions', 'online', 'chips', 'settings'];
+  const tabLabels = { sessions: 'Sessions', online: 'Online', chips: 'Chip history', settings: 'Settings' };
 
   return (
     <>
@@ -95,11 +95,12 @@ function ProfileView({ id, me, onChanged }) {
         </div>
       </header>
 
-      {data.balance !== null && (
-        <dl className="pf-stats">
-          <Stat label="Chips" value={data.balance.toLocaleString()} />
-        </dl>
-      )}
+      <dl className="pf-stats">
+        {data.balance !== null && <Stat label="Chips" value={data.balance.toLocaleString()} />}
+        <Stat label="Online hands" value={data.online.hands} />
+        <Stat label="Online wins" value={data.online.wins} />
+        {data.online.chips !== null && <Stat label="Online chips" value={formatDelta(data.online.chips)} />}
+      </dl>
 
       {data.isMe && (
         <>
@@ -118,6 +119,7 @@ function ProfileView({ id, me, onChanged }) {
           </div>
 
           {tab === 'sessions' && <SessionList sessions={data.sessions} />}
+          {tab === 'online' && <OnlineHands hands={data.onlineHands} />}
           {tab === 'chips' && <ChipHistory rows={data.chipHistory} />}
           {tab === 'settings' && <Settings me={me} onSaved={() => { onChanged(); load(); }} />}
         </>
@@ -241,6 +243,47 @@ function GameCard({ game, number }) {
       )}
       <div className="st-small st-muted">Recorded by {game.recordedBy}</div>
     </div>
+  );
+}
+
+function OnlineHands({ hands }) {
+  if (!hands.length) return <p className="st-muted">No Quick Match hands yet.</p>;
+  return (
+    <ul className="st-list">
+      {hands.map((h) => (
+        <li key={h.id} className="st-card st-game">
+          <div className="st-game-head">
+            <span className="st-strong">Quick Match</span>
+            <span className="st-small st-muted">{formatDate(h.at, true)} · {h.stake} per point</span>
+          </div>
+          <table className="st-table pf-game-table">
+            <thead>
+              <tr>
+                <th className="st-left">Place</th>
+                <th className="st-left">Player</th>
+                <th>Points</th>
+                <th>Chips</th>
+              </tr>
+            </thead>
+            <tbody>
+              {h.players.map((p, i) => (
+                <tr key={i} className={p.isMe ? 'pf-target' : ''}>
+                  <td className="st-left st-muted">{p.placeLabel || '-'}</td>
+                  <td className="st-left">{p.name}</td>
+                  <td className={tone(p.points)}>{formatDelta(p.points)}</td>
+                  <td className={tone(p.chips)}>{formatDelta(p.chips)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {h.events.length > 0 && (
+            <ul className="pf-events">
+              {h.events.map((ev) => <li key={ev}>{ev}</li>)}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

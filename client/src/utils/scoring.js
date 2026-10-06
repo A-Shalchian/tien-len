@@ -78,6 +78,17 @@ export function gameDeltas(game, players, rules) {
   return deltas;
 }
 
+export function renamePlayers(game, rename) {
+  return {
+    ...game,
+    order: (game.order || []).map(rename),
+    instantWin: game.instantWin ? rename(game.instantWin) : null,
+    cong: (game.cong || []).map(rename),
+    chops: (game.chops || []).map((c) => ({ ...c, by: rename(c.by), victim: rename(c.victim) })),
+    stuckTwos: Object.fromEntries(Object.entries(game.stuckTwos || {}).map(([k, v]) => [rename(k), v])),
+  };
+}
+
 export function sessionStats(session) {
   const { players, rules, games } = session;
   const stats = Object.fromEntries(players.map((p) => [p, {

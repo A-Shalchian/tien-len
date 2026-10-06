@@ -43,8 +43,8 @@ export default function Privacy() {
         </li>
         <li>
           <strong>What you create on the site:</strong> your display name and privacy settings, the score sessions you
-          start or join, the player you claim in each session, every game recorded in those sessions, and your chip
-          history.
+          start or join, the player you claim in each session, every game recorded in those sessions, the Quick Match hands you
+          play (your display name, place, points and chips), and your chip history.
         </li>
         <li>
           <strong>Sign-in records:</strong> for each sign-in we store when it started, when it expires, your IP address
@@ -75,8 +75,8 @@ export default function Privacy() {
       <h2 className="lp-h3">What other people can see</h2>
       <ul className="lp-list">
         <li>
-          <strong>Your public profile</strong> at /u/your-id shows your display name, photo, join date and chip balance.
-          Turn on "Make my profile private" in settings to hide it.
+          <strong>Your public profile</strong> at /u/your-id shows your display name, photo, join date, chip balance and
+          how many Quick Match hands you played and won. Turn on "Make my profile private" in settings to hide it.
         </li>
         <li>
           <strong>The chip leaderboard</strong> on the home page shows your display name, photo and chip balance. You can

@@ -65,3 +65,23 @@ create table if not exists profiles (
   private_profile boolean not null default false,
   terms_accepted_at timestamptz
 );
+
+create table if not exists online_hands (
+  id text primary key,
+  stake integer not null,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists online_hand_players (
+  hand_id text not null references online_hands(id) on delete cascade,
+  seat integer not null,
+  user_id text references "user"(id) on delete set null,
+  name text not null,
+  place integer,
+  points integer not null,
+  chips integer not null,
+  primary key (hand_id, seat)
+);
+
+create index if not exists online_hand_players_user_idx on online_hand_players (user_id);

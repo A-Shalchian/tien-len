@@ -213,7 +213,6 @@ function joinMatchmaking(socketId, player, stake, maxPlayers = 4, balance = 0) {
     isPublic: false,
     ranked: true,
     startingBalances: balances,
-    settled: { ...balances },
     readyForNext: new Set(),
   };
   rooms.set(code, room);
@@ -264,24 +263,10 @@ function isUserBusy(userId) {
   return false;
 }
 
-function rankedHandMovements(room) {
-  if (!room.ranked || !room.game) return [];
-  const movements = [];
-  for (const p of room.players) {
-    if (!p.userId) continue;
-    const balance = room.game.balances[p.id];
-    if (balance === undefined) continue;
-    const amount = balance - room.settled[p.id];
-    room.settled[p.id] = balance;
-    if (amount !== 0) movements.push({ userId: p.userId, amount });
-  }
-  return movements;
-}
-
 export {
   rooms, createRoom, joinRoom, startManually,
   getRoomBySocket, getNicknames, getBotFlags, getAway, isAutoPlayed,
   leaveSeat, dropAwayPlayers, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, isUserBusy, rankedHandMovements,
+  listOpenRooms, isUserBusy,
 };

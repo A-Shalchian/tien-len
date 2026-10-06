@@ -6,7 +6,7 @@
 - [x] Database cleanup: dropped the old migrations table, backup saved outside the repo. There were no session chip rows or expired logins to delete.
 - [x] Online rules: play out every place, bigger chops, last winner starts the next hand, 3♠ only on the first hand
 - [x] Online chips scored like the score tracker, each point worth the stake. Leaving mid-hand hands your seat to a bot. Engine tests in `server/game/engine.test.js` (`npm test` in server)
-- [ ] Save online match results and show them on profiles
+- [x] Save Quick Match hands (place, points, chips per player). Profiles show online hands and wins, and your own profile has an Online tab. Practice rooms aren't saved.
 - [ ] Rejoin a game after a refresh or dropped connection
 - [ ] Smarter bots
 - [ ] Score tracker works offline and has charts

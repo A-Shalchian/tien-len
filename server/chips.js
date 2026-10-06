@@ -18,11 +18,21 @@ export async function applyDailyTopUp(userId) {
   );
 }
 
-export async function recordOnlineChips(movements) {
-  if (movements.length === 0) return;
+export async function recordOnlineHand({ id, stake, data, players }) {
   await transaction(async (db) => {
-    for (const m of movements) {
-      await db.query(`insert into chip_ledger (user_id, amount, reason) values ($1, $2, 'online')`, [m.userId, m.amount]);
+    await db.query('insert into online_hands (id, stake, data) values ($1, $2, $3)', [id, stake, data]);
+    for (const p of players) {
+      await db.query(
+        `insert into online_hand_players (hand_id, seat, user_id, name, place, points, chips)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, p.seat, p.userId, p.name, p.place, p.points, p.chips],
+      );
+      if (p.userId && p.chips) {
+        await db.query(
+          `insert into chip_ledger (user_id, amount, reason, game_id) values ($1, $2, 'online', $3)`,
+          [p.userId, p.chips, id],
+        );
+      }
     }
   });
 }

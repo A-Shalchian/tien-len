@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -7,7 +8,7 @@ import {
   getNicknames, getBotFlags, getAway, isAutoPlayed,
   leaveSeat, dropAwayPlayers, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, isUserBusy, rankedHandMovements,
+  listOpenRooms, isUserBusy,
 } from './rooms.js';
 import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
@@ -16,7 +17,8 @@ import { toNodeHandler } from 'better-auth/node';
 import scoresRouter from './scores.js';
 import profileRouter, { loadProfile } from './profile.js';
 import { auth, getUserFromHeaders } from './auth.js';
-import { getBalance, recordOnlineChips } from './chips.js';
+import { getBalance, recordOnlineHand } from './chips.js';
+import { renamePlayers } from '../client/src/utils/scoring.js';
 import { migrate } from './migrate.js';
 
 import { fileURLToPath } from 'url';
@@ -40,8 +42,24 @@ const io = new Server(httpServer, {
   },
 });
 
-function saveOnlineChips(movements) {
-  recordOnlineChips(movements).catch((err) => console.error('Failed to save online chips', err));
+function saveOnlineHand(room, result) {
+  const seats = room.game.players;
+  const seatOf = (id) => String(seats.indexOf(id));
+  const { data } = result;
+  const players = seats.map((id, seat) => {
+    const p = room.players.find((x) => x.id === id);
+    const place = data.instantWin ? (id === data.instantWin ? 1 : null) : data.order.indexOf(id) + 1 || null;
+    return {
+      seat,
+      userId: p?.userId || null,
+      name: p?.nickname || 'Player',
+      place,
+      points: result.points[id],
+      chips: result.chips[id],
+    };
+  });
+  const hand = { id: crypto.randomBytes(6).toString('hex'), stake: room.stake, data: renamePlayers(data, seatOf), players };
+  recordOnlineHand(hand).catch((err) => console.error('Failed to save online hand', err));
 }
 
 function broadcastRoomList() {
@@ -65,7 +83,7 @@ async function loadPlayer(userId) {
 }
 
 function broadcastHandOver(room, result) {
-  saveOnlineChips(rankedHandMovements(room));
+  if (room.ranked) saveOnlineHand(room, result);
   emitToHumans(room, 'hand-over', {
     data: result.data,
     instantWinType: result.instantWinType,

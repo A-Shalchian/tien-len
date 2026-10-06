@@ -4,7 +4,7 @@ import { getUser } from './auth.js';
 import { getBalance, applyDailyTopUp } from './chips.js';
 import { gameChips } from './game/payout.js';
 import {
-  gameDeltas, describeChop, describeStuckLast, ordinal,
+  gameDeltas, describeChop, describeStuckLast, ordinal, renamePlayers,
 } from '../client/src/utils/scoring.js';
 
 export async function hasAcceptedTerms(userId) {
@@ -145,6 +145,53 @@ async function sessionHistory(userId) {
     .sort((a, b) => new Date(b.lastPlayedAt || b.createdAt) - new Date(a.lastPlayedAt || a.createdAt));
 }
 
+async function onlineStats(userId) {
+  const { rows } = await pool.query(
+    `select count(*)::int as hands, count(*) filter (where place = 1)::int as wins,
+            coalesce(sum(chips), 0)::int as chips
+     from online_hand_players where user_id = $1`,
+    [userId],
+  );
+  return rows[0];
+}
+
+async function onlineHistory(userId, limit = 50) {
+  const { rows: hands } = await pool.query(
+    `select h.id, h.stake, h.data, h.created_at from online_hands h
+     where exists (select 1 from online_hand_players p where p.hand_id = h.id and p.user_id = $1)
+     order by h.created_at desc limit $2`,
+    [userId, limit],
+  );
+  if (!hands.length) return [];
+  const { rows: players } = await pool.query(
+    `select hand_id, seat, user_id, name, place, points, chips from online_hand_players
+     where hand_id = any($1) order by seat`,
+    [hands.map((h) => h.id)],
+  );
+  const byHand = {};
+  for (const p of players) (byHand[p.hand_id] ||= []).push(p);
+  return hands.map((h) => {
+    const seats = byHand[h.id] || [];
+    const names = Object.fromEntries(seats.map((p) => [String(p.seat), p.name]));
+    return {
+      id: h.id,
+      at: h.created_at,
+      stake: h.stake,
+      players: seats
+        .map((p) => ({
+          name: p.name,
+          isMe: p.user_id === userId,
+          place: p.place,
+          placeLabel: p.place ? ordinal(p.place) : null,
+          points: p.points,
+          chips: p.chips,
+        }))
+        .sort((a, b) => (a.place || 99) - (b.place || 99)),
+      events: describeEvents(renamePlayers(h.data, (seat) => names[seat] || 'Player')),
+    };
+  });
+}
+
 const router = express.Router();
 router.use(express.json());
 
@@ -232,6 +279,7 @@ router.get('/me/export', handle(async (req, res) => {
     ),
     sessionHistory(user.id),
   ]);
+  const online = await onlineHistory(user.id, 100000);
   const data = {
     exportedAt: new Date().toISOString(),
     account: {
@@ -251,6 +299,7 @@ router.get('/me/export', handle(async (req, res) => {
     chipBalance: await getBalance(user.id),
     sessions: sessions.rows,
     games: history.flatMap((s) => s.games.map((g) => ({ sessionId: s.id, sessionName: s.name, ...g }))),
+    onlineHands: online,
     chipHistory: ledger.rows,
     loginSessions: logins.rows,
   };
@@ -301,24 +350,28 @@ router.get('/users/:id', handle(async (req, res) => {
   if (!profile) return res.status(404).json({ error: 'This profile does not exist.' });
   const isMe = viewer?.id === profile.id;
   if (profile.privateProfile && !isMe) return res.status(403).json({ error: 'This profile is private.' });
+  const showChips = isMe || !profile.hideFromLeaderboard;
+  const online = await onlineStats(profile.id);
   const base = {
     id: profile.id,
     name: profile.name,
     image: profile.image,
     joinedAt: profile.createdAt,
     isMe,
-    balance: isMe || !profile.hideFromLeaderboard ? await getBalance(profile.id) : null,
+    balance: showChips ? await getBalance(profile.id) : null,
+    online: { hands: online.hands, wins: online.wins, chips: showChips ? online.chips : null },
   };
   if (!isMe) return res.json(base);
-  const [sessions, chipHistory] = await Promise.all([
+  const [sessions, onlineHands, chipHistory] = await Promise.all([
     sessionHistory(profile.id),
+    onlineHistory(profile.id),
     pool.query(
       `select amount, reason, created_at from chip_ledger
        where user_id = $1 order by created_at desc limit 300`,
       [profile.id],
     ),
   ]);
-  res.json({ ...base, sessions, chipHistory: chipHistory.rows });
+  res.json({ ...base, sessions, onlineHands, chipHistory: chipHistory.rows });
 }));
 
 router.get('/leaderboard', handle(async (req, res) => {

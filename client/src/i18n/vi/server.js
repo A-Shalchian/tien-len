@@ -27,6 +27,9 @@ export default {
   'That room is already closed.': 'Phòng này đã đóng rồi.',
   'That user does not exist.': 'Người dùng này không tồn tại.',
   'That would put the balance below zero.': 'Số chip sẽ bị âm.',
+  'Sign in again to change chips. Your last sign-in was more than a day ago.': 'Đăng nhập lại để đổi chip. Lần đăng nhập gần nhất đã hơn một ngày.',
+  'Only the session leader can manage who has access.': 'Chỉ người tạo phiên mới quản lý được ai có quyền xem.',
+  'That person is not in this session.': 'Người này không có trong phiên.',
 
   'Room not found': 'Không tìm thấy phòng',
   'Game already in progress': 'Phòng này đang chơi rồi',

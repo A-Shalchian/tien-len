@@ -1241,3 +1241,31 @@
     transform: none;
   }
 }
+
+.st-members {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.st-members li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--st-stock-line);
+}
+
+.st-member-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.st-btn-sm {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  font-size: 0.85rem;
+}

@@ -569,7 +569,9 @@ function SessionView({ id, onBack }) {
         {isLeader && (
           <aside className="st-stack st-side">
             <div className="st-o-record"><RecordGame session={session} onRecord={recordGame} /></div>
-            <div className="st-o-invite"><InvitePanel code={session.inviteCode} /></div>
+            <div className="st-o-invite">
+              <InvitePanel session={serverSession} offline={offline} onChanged={setSession} />
+            </div>
             {!offline && (
               <div className="st-stack st-o-settings">
                 <SettingsPanel session={serverSession} onSaved={setSession} />
@@ -824,10 +826,33 @@ function GameRow({ game, number, session, onRemove }) {
   );
 }
 
-function InvitePanel({ code }) {
-  const { t } = useLang();
+function InvitePanel({ session, offline, onChanged }) {
+  const { t, locale } = useLang();
   const [copied, setCopied] = useState(false);
-  const link = `${window.location.origin}/scores/join/${code}`;
+  const [confirm, setConfirm] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const link = `${window.location.origin}/scores/join/${session.inviteCode}`;
+  const members = session.members || [];
+
+  const act = async (key, request) => {
+    if (confirm !== key) {
+      setConfirm(key);
+      return;
+    }
+    setConfirm(null);
+    setBusy(true);
+    setError(null);
+    try {
+      onChanged(await request());
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = (member) => act(member.userId, () => api(`/sessions/${session.id}/members/${member.userId}`, { method: 'DELETE' }));
+  const renew = () => act('renew', () => api(`/sessions/${session.id}/invite`, { method: 'POST', body: {} }));
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(link);
@@ -847,6 +872,37 @@ function InvitePanel({ code }) {
       <p className="st-small st-muted">
         {t('People who open it sign in with Google, pick their player, and can then view this session.')}
       </p>
+      {!offline && (
+        <button className="st-btn st-btn-ghost" onClick={renew} onBlur={() => setConfirm(null)} disabled={busy}>
+          {confirm === 'renew' ? t('Tap again. The old link stops working.') : t('Make a new link')}
+        </button>
+      )}
+
+      <div className="st-label">{t('People with access')}</div>
+      {members.length === 0 && <p className="st-small st-muted">{t('Nobody has joined with this link yet.')}</p>}
+      <ul className="st-members">
+        {members.map((m) => (
+          <li key={m.userId}>
+            <span className="st-member-text">
+              <span className="st-strong">{m.name}</span>
+              <span className="st-small st-muted">
+                {m.player ? t('Plays as {name}', { name: m.player }) : t('Viewer')}
+                {', '}
+                {t('joined {date}', { date: formatDateTime(locale, m.joinedAt) })}
+              </span>
+            </span>
+            {!offline && (
+              <button className="st-btn st-btn-danger st-btn-sm" onClick={() => remove(m)} onBlur={() => setConfirm(null)} disabled={busy}>
+                {confirm === m.userId ? t('Tap again to remove') : t('Remove')}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {members.length > 0 && (
+        <p className="st-small st-muted">{t('Removed people lose access and their player link. Their past games stay.')}</p>
+      )}
+      {error && <p className="st-error">{t(error)}</p>}
     </section>
   );
 }

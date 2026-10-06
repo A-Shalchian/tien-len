@@ -124,8 +124,30 @@ async function loadPlayers(sessionId, db = pool) {
   return rows;
 }
 
+async function loadMembers(sessionId) {
+  const { rows } = await pool.query(
+    `select m.user_id, m.joined_at, coalesce(pr.display_name, u.name) as name,
+            case when pr.hide_avatar then null else u.image end as image,
+            (select p.name from session_players p where p.session_id = m.session_id and p.user_id = m.user_id) as player
+     from session_members m
+     join "user" u on u.id = m.user_id
+     left join profiles pr on pr.user_id = m.user_id
+     where m.session_id = $1
+     order by m.joined_at`,
+    [sessionId],
+  );
+  return rows.map((r) => ({
+    userId: r.user_id,
+    name: cleanName(r.name),
+    image: cleanImage(r.image),
+    player: r.player,
+    joinedAt: r.joined_at,
+  }));
+}
+
 async function sessionView(s, userId) {
   const players = await loadPlayers(s.id);
+  const members = s.is_leader ? await loadMembers(s.id) : undefined;
   const [games, leader] = await Promise.all([
     pool.query(
       `select id, data, rules, chip_rate, created_at from games where session_id = $1 and undone_at is null order by created_at`,
@@ -150,6 +172,7 @@ async function sessionView(s, userId) {
     role: s.is_leader ? 'leader' : me ? 'player' : 'viewer',
     leaderName: leader.rows[0]?.name || null,
     inviteCode: s.is_leader ? s.invite_code : undefined,
+    members,
     rules: s.rules,
     chipRate: s.chip_rate,
     players: names,
@@ -292,6 +315,29 @@ router.delete('/sessions/:id/games/:gameId', requireUser(async (req, res, user) 
   );
   if (!rowCount) return res.status(404).json({ error: 'Game not found' });
   res.json(await sessionView(s, user.id));
+}));
+
+router.delete('/sessions/:id/members/:userId', requireUser(async (req, res, user) => {
+  const s = await loadAccess(req.params.id, user.id);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  if (!s.is_leader) return res.status(403).json({ error: 'Only the session leader can manage who has access.' });
+  const target = req.params.userId;
+  if (target === s.leader_id) return res.status(400).json({ error: 'That person is not in this session.' });
+  const removed = await transaction(async (db) => {
+    const member = await db.query('delete from session_members where session_id = $1 and user_id = $2', [s.id, target]);
+    const linked = await db.query('update session_players set user_id = null where session_id = $1 and user_id = $2', [s.id, target]);
+    return member.rowCount + linked.rowCount;
+  });
+  if (!removed) return res.status(404).json({ error: 'That person is not in this session.' });
+  res.json(await sessionView(s, user.id));
+}));
+
+router.post('/sessions/:id/invite', requireUser(async (req, res, user) => {
+  const s = await loadAccess(req.params.id, user.id);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  if (!s.is_leader) return res.status(403).json({ error: 'Only the session leader can manage who has access.' });
+  await pool.query('update tracker_sessions set invite_code = $2 where id = $1', [s.id, newId(8)]);
+  res.json(await sessionView(await loadAccess(s.id, user.id), user.id));
 }));
 
 router.get('/join/:code', requireUser(async (req, res, user) => {

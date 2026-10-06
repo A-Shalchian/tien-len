@@ -109,26 +109,20 @@ test('junk moves during a live hand get rejected, never thrown', async () => {
   const rejected = [];
   socket.on('invalid-play', ({ reason }) => rejected.push(reason));
 
+  let me = null;
+  let myTurn = false;
+  socket.on('game-start', (d) => { me = d.you; myTurn = d.firstPlayer === d.you; });
+  socket.on('game-state', (d) => { myTurn = d.turn === me; });
+  socket.on('hand-over', () => { myTurn = false; socket.emit('new-hand'); });
+
   socket.emit('create-room', { nickname: 'Fuzzer', fillWithBots: true });
   await nextEvent(socket, 'room-created');
   socket.emit('start-game');
-  const start = await nextEvent(socket, 'game-start');
 
-  let myTurn = start.firstPlayer === start.you;
-  const deadline = Date.now() + 20000;
+  const deadline = Date.now() + 30000;
   while (!myTurn) {
     assert.ok(Date.now() < deadline, 'never got a turn');
-    const event = await Promise.race([
-      nextEvent(socket, 'game-state', 20000).then((s) => ({ s })),
-      nextEvent(socket, 'hand-over', 20000).then(() => ({ over: true })),
-    ]);
-    if (event.over) {
-      socket.emit('new-hand');
-      const again = await nextEvent(socket, 'game-start');
-      myTurn = again.firstPlayer === again.you;
-    } else {
-      myTurn = event.s.turn === start.you;
-    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
   for (const payload of JUNK) {

@@ -9,6 +9,7 @@ import { createAdminRouter } from './admin.js';
 import { auth, getUserFromHeaders } from './auth.js';
 import { getBalance, recordOnlineHand } from './chips.js';
 import { createGameServer, MAX_MESSAGE_BYTES } from './game-server.js';
+import { securityHeaders, allowedOrigins, isAllowedOrigin } from './security.js';
 import { migrate } from './migrate.js';
 
 import { fileURLToPath } from 'url';
@@ -21,7 +22,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 
 const app = express();
-app.use(cors());
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+app.use(securityHeaders());
+app.use(cors({ origin: allowedOrigins() }));
 app.use(express.static(clientDist));
 app.all('/api/auth/*', toNodeHandler(auth));
 
@@ -29,9 +33,10 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   maxHttpBufferSize: MAX_MESSAGE_BYTES,
   cors: {
-    origin: '*',
+    origin: allowedOrigins(),
     methods: ['GET', 'POST'],
   },
+  allowRequest: (req, callback) => callback(null, isAllowedOrigin(req.headers.origin)),
 });
 
 async function loadPlayer(userId) {

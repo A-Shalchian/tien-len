@@ -239,7 +239,10 @@ router.patch('/me/settings', handle(async (req, res) => {
   const b = req.body || {};
   let displayName = current.displayName;
   if (b.displayName !== undefined) {
-    const trimmed = String(b.displayName).replace(/\s+/g, ' ').trim();
+    if (b.displayName !== null && typeof b.displayName !== 'string') {
+      return res.status(400).json({ error: 'Display name can be at most 30 characters.' });
+    }
+    const trimmed = (b.displayName || '').replace(/\s+/g, ' ').trim();
     if (trimmed.length > 30) return res.status(400).json({ error: 'Display name can be at most 30 characters.' });
     displayName = trimmed || null;
   }
@@ -256,6 +259,7 @@ router.patch('/me/settings', handle(async (req, res) => {
       flag('privateProfile', current.privateProfile),
     ],
   );
+  leaderboard.rows = null;
   res.json({ profile: await loadProfile(user.id) });
 }));
 
@@ -345,6 +349,7 @@ router.delete('/me', handle(async (req, res) => {
     await db.query('delete from "user" where id = $1', [user.id]);
   });
   res.clearCookie('better-auth.session_token');
+  leaderboard.rows = null;
   res.status(204).end();
 }));
 
@@ -378,7 +383,11 @@ router.get('/users/:id', handle(async (req, res) => {
   res.json({ ...base, sessions, onlineHands, chipHistory: chipHistory.rows });
 }));
 
+const LEADERBOARD_TTL_MS = 30000;
+const leaderboard = { rows: null, at: 0 };
+
 router.get('/leaderboard', handle(async (req, res) => {
+  if (leaderboard.rows && Date.now() - leaderboard.at < LEADERBOARD_TTL_MS) return res.json(leaderboard.rows);
   const { rows } = await pool.query(
     `select u.id, coalesce(pr.display_name, u.name) as name,
             case when pr.hide_avatar then null else u.image end as image,
@@ -392,12 +401,14 @@ router.get('/leaderboard', handle(async (req, res) => {
      order by balance desc, name
      limit 10`,
   );
-  res.json(rows.map((r) => ({
+  leaderboard.rows = rows.map((r) => ({
     id: r.private_profile ? null : r.id,
     name: cleanName(r.name),
     image: cleanImage(r.image),
     balance: r.balance,
-  })));
+  }));
+  leaderboard.at = Date.now();
+  res.json(leaderboard.rows);
 }));
 
 export default router;

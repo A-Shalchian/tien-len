@@ -9,7 +9,9 @@ import { createAdminRouter } from './admin.js';
 import { auth, getUserFromHeaders } from './auth.js';
 import { getBalance, recordOnlineHand } from './chips.js';
 import { createGameServer, MAX_MESSAGE_BYTES } from './game-server.js';
-import { securityHeaders, allowedOrigins, isAllowedOrigin } from './security.js';
+import {
+  securityHeaders, allowedOrigins, isAllowedOrigin, authLimiter, inviteLimiter, apiLimiter,
+} from './security.js';
 import { migrate } from './migrate.js';
 
 import { fileURLToPath } from 'url';
@@ -27,6 +29,9 @@ app.set('trust proxy', 1);
 app.use(securityHeaders());
 app.use(cors({ origin: allowedOrigins() }));
 app.use(express.static(clientDist));
+app.use('/api/auth', authLimiter);
+app.use('/api/join', inviteLimiter);
+app.use('/api', apiLimiter);
 app.all('/api/auth/*', toNodeHandler(auth));
 
 const httpServer = createServer(app);

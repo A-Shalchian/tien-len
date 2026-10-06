@@ -2,6 +2,7 @@ export default {
   'Something went wrong on the server. Try again.': 'Máy chủ bị lỗi. Thử lại nhé.',
   "You're offline. Check your connection.": 'Bạn đang mất mạng. Kiểm tra kết nối nhé.',
   'Request failed': 'Yêu cầu không thành công',
+  'Too many requests. Try again in a minute.': 'Bạn thao tác quá nhanh. Thử lại sau một phút nhé.',
   'Not found': 'Không tìm thấy',
 
   'Sign in with Google to continue.': 'Đăng nhập bằng Google để tiếp tục.',

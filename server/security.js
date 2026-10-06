@@ -1,4 +1,7 @@
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+
+export const SLOW_DOWN = 'Too many requests. Try again in a minute.';
 
 const DEV_ORIGINS = ['http://localhost:5173', 'http://localhost:3001'];
 
@@ -48,3 +51,24 @@ export function securityHeaders() {
     strictTransportSecurity: secure ? { maxAge: 31536000, includeSubDomains: true } : false,
   });
 }
+
+export function clientIp(headers, fallback) {
+  const cf = headers['cf-connecting-ip'];
+  return typeof cf === 'string' && cf ? cf : fallback || 'unknown';
+}
+
+function limiter(limit) {
+  return rateLimit({
+    windowMs: 60000,
+    limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => clientIp(req.headers, req.ip),
+    message: { error: SLOW_DOWN },
+    validate: false,
+  });
+}
+
+export const authLimiter = limiter(30);
+export const inviteLimiter = limiter(10);
+export const apiLimiter = limiter(300);

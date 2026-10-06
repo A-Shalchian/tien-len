@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { io as connect } from 'socket.io-client';
 import { createGameServer, MAX_MESSAGE_BYTES } from './game-server.js';
+import { SLOW_DOWN } from './security.js';
 
 const EVENTS = [
   'watch-rooms', 'unwatch-rooms', 'create-room', 'join-room', 'start-game', 'play-cards', 'pass',
@@ -30,8 +31,8 @@ let io;
 let url;
 const clients = [];
 
-function client(user) {
-  const socket = connect(url, {
+function client(user, target = url) {
+  const socket = connect(target, {
     transports: ['websocket'],
     forceNew: true,
     reconnection: false,
@@ -76,6 +77,7 @@ before(async () => {
     getBalance: async () => 5000,
     recordOnlineHand: async () => {},
     onError: (err, where) => errors.push(`${where}: ${err.stack}`),
+    limits: { events: 1e6, rooms: 1e6, connections: 1e6 },
   });
   await new Promise((resolve) => http.listen(0, resolve));
   url = `http://localhost:${http.address().port}`;
@@ -150,4 +152,40 @@ test('an oversized message drops that connection and nothing else', async () => 
   await dropped;
   assert.deepEqual(errors, []);
   await stillAnswers();
+});
+
+test('spam gets cut off: rooms, messages and connections', async () => {
+  const server = createServer();
+  const strict = new Server(server);
+  createGameServer(strict, {
+    getUser: async () => null,
+    loadPlayer: async () => null,
+    getBalance: async () => 0,
+    recordOnlineHand: async () => {},
+    onError: (err, where) => errors.push(`${where}: ${err.stack}`),
+    limits: { events: 10, eventWindowMs: 60000, rooms: 2, roomWindowMs: 60000, connections: 3, connectionWindowMs: 60000 },
+  });
+  await new Promise((resolve) => server.listen(0, resolve));
+  const strictUrl = `http://localhost:${server.address().port}`;
+
+  const roomMaker = await client(null, strictUrl);
+  const roomErrors = [];
+  roomMaker.on('join-error', ({ error }) => roomErrors.push(error));
+  for (let i = 0; i < 3; i++) roomMaker.emit('create-room', { nickname: 'Spam' });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.deepEqual(roomErrors, [SLOW_DOWN]);
+
+  const watcher = await client(null, strictUrl);
+  let lists = 0;
+  watcher.on('room-list', () => { lists += 1; });
+  for (let i = 0; i < 25; i++) watcher.emit('watch-rooms');
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal(lists, 10);
+
+  await client(null, strictUrl);
+  await assert.rejects(client(null, strictUrl), (err) => err.message === SLOW_DOWN);
+
+  assert.deepEqual(errors, []);
+  strict.close();
+  server.close();
 });

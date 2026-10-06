@@ -10,8 +10,18 @@ import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
 import { minBalance } from './game/payout.js';
 import { renamePlayers } from '../client/src/utils/scoring.js';
+import { clientIp, SLOW_DOWN } from './security.js';
 
 export const MAX_MESSAGE_BYTES = 10000;
+export const DEFAULT_LIMITS = {
+  events: 40,
+  eventWindowMs: 5000,
+  rooms: 5,
+  roomWindowMs: 10000,
+  connections: 30,
+  connectionWindowMs: 60000,
+};
+const ROOM_EVENTS = { 'create-room': 'join-error', 'join-room': 'join-error', 'find-match': 'match-error' };
 const EMOTE_COOLDOWN_MS = 800;
 const NOT_IN_HAND = 'Those cards are not in your hand';
 
@@ -32,6 +42,17 @@ function clamp(n, min, max) {
   return Math.min(max, Math.max(min, n));
 }
 
+function allow(store, name, limit, windowMs) {
+  const now = Date.now();
+  const bucket = store[name];
+  if (!bucket || now >= bucket.reset) {
+    store[name] = { count: 1, reset: now + windowMs };
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= limit;
+}
+
 function cardList(value) {
   if (!Array.isArray(value) || value.length === 0 || value.length > 13) return null;
   return value.every((id) => typeof id === 'string' && id.length <= 3) ? value : null;
@@ -41,6 +62,8 @@ export function createGameServer(io, deps) {
   const { getUser, loadPlayer, getBalance, recordOnlineHand } = deps;
   const onError = deps.onError || ((err, where) => console.error(`Socket handler ${where} failed`, err));
   const savingHands = new Set();
+  const limits = { ...DEFAULT_LIMITS, ...deps.limits };
+  const connectionsByIp = new Map();
 
   function safely(where, fn) {
     try {
@@ -52,7 +75,25 @@ export function createGameServer(io, deps) {
   }
 
   function on(socket, event, handler) {
-    socket.on(event, (payload) => safely(event, () => handler(asObject(payload))));
+    socket.on(event, (payload) => safely(event, () => {
+      if (event !== 'disconnect') {
+        if (!allow(socket.data, 'events', limits.events, limits.eventWindowMs)) return undefined;
+        if (ROOM_EVENTS[event] && !allow(socket.data, 'rooms', limits.rooms, limits.roomWindowMs)) {
+          socket.emit(ROOM_EVENTS[event], { error: SLOW_DOWN });
+          return undefined;
+        }
+      }
+      return handler(asObject(payload));
+    }));
+  }
+
+  function allowConnection(ip) {
+    if (connectionsByIp.size > 5000) {
+      const now = Date.now();
+      for (const [key, store] of connectionsByIp) if (now >= store.connections.reset) connectionsByIp.delete(key);
+    }
+    if (!connectionsByIp.has(ip)) connectionsByIp.set(ip, {});
+    return allow(connectionsByIp.get(ip), 'connections', limits.connections, limits.connectionWindowMs);
   }
 
   function later(where, fn, ms) {
@@ -287,6 +328,10 @@ export function createGameServer(io, deps) {
   }
 
   io.use(async (socket, next) => {
+    if (!allowConnection(clientIp(socket.handshake.headers, socket.handshake.address))) {
+      next(new Error(SLOW_DOWN));
+      return;
+    }
     const key = socket.handshake.auth?.key;
     socket.data.key = typeof key === 'string' && /^[\w-]{8,64}$/.test(key) ? key : null;
     try {

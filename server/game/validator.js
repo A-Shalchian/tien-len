@@ -1,4 +1,4 @@
-import { rankValue, suitValue, cardValue, sortCards, RANKS } from './deck.js';
+import { rankValue, suitValue, sortCards } from './deck.js';
 
 function identifyCombo(cards) {
   if (!cards || cards.length === 0) return null;
@@ -64,33 +64,31 @@ function compareCards(a, b) {
   return suitValue(a.suit) - suitValue(b.suit);
 }
 
+const TWOS_NEEDED = { single: 1, pair: 2, triple: 4 };
+
+function bombPower(combo) {
+  if (combo.type === 'four-of-a-kind') return 2;
+  if (combo.type === 'double-sequence') return combo.pairCount === 3 ? 1 : combo.pairCount - 1;
+  return 0;
+}
+
+function isBomb(combo) {
+  return bombPower(combo) > 0;
+}
+
 function canBeat(playCombo, tableCombo) {
   if (!tableCombo) return true;
 
-  if (playCombo.type === 'four-of-a-kind' && tableCombo.type === 'single' && tableCombo.high.rank === '2') {
-    return true;
+  const power = bombPower(playCombo);
+  if (power && tableCombo.high.rank === '2' && TWOS_NEEDED[tableCombo.type]) {
+    return power >= TWOS_NEEDED[tableCombo.type];
   }
 
-  if (playCombo.type === 'double-sequence' && playCombo.pairCount >= 3 &&
-      tableCombo.type === 'single' && tableCombo.high.rank === '2') {
-    return true;
-  }
-
-  if (playCombo.type === 'double-sequence' && playCombo.pairCount >= 4 &&
-      tableCombo.type === 'pair' && tableCombo.high.rank === '2') {
-    return true;
-  }
-
-  if (playCombo.type === 'double-sequence' && playCombo.pairCount >= 5 &&
-      tableCombo.type === 'triple' && tableCombo.high.rank === '2') {
-    return true;
-  }
+  const tablePower = bombPower(tableCombo);
+  if (power && tablePower && power !== tablePower) return power > tablePower;
 
   if (playCombo.type !== tableCombo.type) return false;
   if (playCombo.cards.length !== tableCombo.cards.length) return false;
-
-  if (playCombo.type === 'sequence' && playCombo.length !== tableCombo.length) return false;
-  if (playCombo.type === 'double-sequence' && playCombo.pairCount !== tableCombo.pairCount) return false;
 
   return compareCards(playCombo.high, tableCombo.high) > 0;
 }
@@ -115,4 +113,4 @@ function checkInstantWin(hand) {
   return null;
 }
 
-export { identifyCombo, canBeat, checkInstantWin, compareCards };
+export { identifyCombo, canBeat, checkInstantWin, isBomb };

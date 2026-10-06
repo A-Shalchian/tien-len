@@ -26,9 +26,3 @@ export async function recordOnlineChips(movements) {
     }
   });
 }
-
-export function gameChips(deltas, rate) {
-  const names = Object.keys(deltas);
-  const average = names.reduce((sum, n) => sum + deltas[n], 0) / (names.length || 1);
-  return Object.fromEntries(names.map((n) => [n, rate ? Math.round((deltas[n] - average) * rate) : 0]));
-}

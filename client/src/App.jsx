@@ -103,6 +103,9 @@ function GameApp() {
       opponents: buildOpponents(data.players, data.you, 13),
       mustPlay3S: data.mustPlay3S || false,
       passedPlayers: [],
+      finished: [],
+      away: [],
+      stake: data.stake,
     });
     setError(null);
   }, []);
@@ -119,6 +122,9 @@ function GameApp() {
       passedBy: data.passedBy,
       newRound: data.newRound,
       passedPlayers: data.passedPlayers || [],
+      finished: data.finished || [],
+      away: data.away || [],
+      mustPlay3S: data.mustPlay3S || false,
     }));
     if (data.nicknames) setNicknames(data.nicknames);
     if (data.bots) setBotFlags(data.bots);

@@ -33,9 +33,9 @@ It uses a normal 52-card deck. 2 to 4 players get 13 cards each.
 
 Cards go from 3 (lowest) up to A, then 2 (highest). When two cards have the same rank, the suit decides: ♠ < ♣ < ♦ < ♥.
 
-Whoever has the 3♠ starts the hand and has to play it. After that, each player beats what's on the table or passes. To beat a play you need the same kind of combo, but higher. Once you pass, you sit out until the round ends. When everyone else has passed, the last person who played starts a new round with anything they want.
+Whoever has the 3♠ starts the first hand and has to play it. After that, the last winner starts. Each player beats what's on the table or passes. To beat a play you need the same kind of combo, but higher. Once you pass, you sit out until the round ends. When everyone else has passed, the last person who played starts a new round with anything they want.
 
-The first player to get rid of all their cards wins.
+Play goes on until only one player has cards left, so everyone gets a place: 1st, 2nd, 3rd and last.
 
 | Combo | Example |
 |---|---|
@@ -52,13 +52,15 @@ A straight only beats a straight of the same length. Same for pair straights.
 
 | To beat | Play |
 |---|---|
-| A single 2 | Four of a kind, or a pair straight of 3 pairs |
-| A pair of 2s | A pair straight of 4 pairs |
+| A single 2 | A pair straight of 3 pairs, or four of a kind |
+| A pair of 2s | Four of a kind, or a pair straight of 4 pairs |
 | Three 2s | A pair straight of 5 pairs |
+
+Bigger chops beat smaller ones: 3 pairs, then four of a kind, then 4 pairs, then 5 pairs.
 
 You win right away (tới trắng) if you're dealt all four 2s, or a dragon: one of every card from 3 to A.
 
-Online, everyone puts the ante in the pot at the start of each hand and the winner takes it. Quick Match uses the chips on your account. Rooms you make yourself use practice chips.
+Online hands are scored with the score tracker points below, and each point is worth the stake. Quick Match uses the chips on your account. Rooms you make yourself use practice chips. If you leave mid-hand, a bot finishes your hand.
 
 ## Score tracker
 

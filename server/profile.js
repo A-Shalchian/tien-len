@@ -1,7 +1,8 @@
 import express from 'express';
 import { pool, transaction } from './db.js';
 import { getUser } from './auth.js';
-import { getBalance, applyDailyTopUp, gameChips } from './chips.js';
+import { getBalance, applyDailyTopUp } from './chips.js';
+import { gameChips } from './game/payout.js';
 import {
   gameDeltas, describeChop, describeStuckLast, ordinal,
 } from '../client/src/utils/scoring.js';

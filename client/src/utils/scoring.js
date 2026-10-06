@@ -120,7 +120,7 @@ export function sessionStats(session) {
     .sort((a, b) => b.total - a.total || b.wins - a.wins);
 }
 
-function describeTwos({ black, red }) {
+export function describeTwos({ black, red }) {
   const parts = [];
   if (black) parts.push(`${black} black`);
   if (red) parts.push(`${red} red`);

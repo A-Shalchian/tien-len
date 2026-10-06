@@ -4,12 +4,14 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import {
   createRoom, joinRoom, startManually, getRoomBySocket,
-  getNicknames, getBotFlags, getBots, removePlayer, requestNewHand,
+  getNicknames, getBotFlags, getAway, isAutoPlayed,
+  leaveSeat, dropAwayPlayers, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, isUserBusy, rankedHandMovements, rankedLeaveMovements,
+  listOpenRooms, isUserBusy, rankedHandMovements,
 } from './rooms.js';
-import { playCards, pass, getGameState, resolveInstantWin } from './game/engine.js';
+import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
+import { minBalance } from './game/payout.js';
 import { toNodeHandler } from 'better-auth/node';
 import scoresRouter from './scores.js';
 import profileRouter, { loadProfile } from './profile.js';
@@ -46,13 +48,14 @@ function broadcastRoomList() {
   io.to('room-browser').emit('room-list', listOpenRooms());
 }
 
-function endRankedMatch(socketId) {
-  const room = getRoomBySocket(socketId);
-  if (!room?.ranked || !room.game || !room.players.some((p) => p.id === socketId)) return false;
-  saveOnlineChips(rankedLeaveMovements(room, socketId));
-  room.game = null;
-  room.handActive = false;
-  return true;
+function humans(room) {
+  return room.players.filter((p) => !p.isBot && !p.away);
+}
+
+function emitToHumans(room, event, payload) {
+  for (const p of humans(room)) {
+    io.to(p.id).emit(event, typeof payload === 'function' ? payload(p) : payload);
+  }
 }
 
 async function loadPlayer(userId) {
@@ -62,175 +65,116 @@ async function loadPlayer(userId) {
 }
 
 function broadcastHandOver(room, result) {
-  room.handActive = false;
   saveOnlineChips(rankedHandMovements(room));
-  const nicknames = getNicknames(room);
-  if (result.bombPenalty) {
-    const bp = result.bombPenalty;
-    for (const p of room.players) {
-      if (p.isBot) continue;
-      io.to(p.id).emit('bomb-penalty', {
-        victim: bp.victim,
-        victimNickname: nicknames[bp.victim],
-        bomber: bp.bomber,
-        bomberNickname: nicknames[bp.bomber],
-        penalty: bp.penalty,
-      });
-    }
-  }
-  for (const p of room.players) {
-    if (p.isBot) continue;
-    io.to(p.id).emit('hand-over', {
-      winner: result.winner,
-      winnerNickname: nicknames[result.winner],
-      losers: result.losers,
-      pot: result.pot,
-      balances: result.balances,
-      eliminated: result.eliminated || [],
-      gameOver: result.gameOver || false,
-    });
+  emitToHumans(room, 'hand-over', {
+    data: result.data,
+    instantWinType: result.instantWinType,
+    points: result.points,
+    chips: result.chips,
+    balances: result.balances,
+    hands: result.hands,
+    nicknames: getNicknames(room),
+    stake: room.stake,
+  });
+  const dropped = dropAwayPlayers(room);
+  if (dropped.length > 0) {
+    emitToHumans(room, 'player-left', { nicknames: getNicknames(room), playerCount: room.players.length });
   }
 }
 
-function broadcastGameStart(room, dealResult) {
+function broadcastGameStart(room, deal) {
   const nicknames = getNicknames(room);
   const bots = getBotFlags(room);
+  emitToHumans(room, 'game-start', (p) => ({
+    hand: deal.hands[p.id],
+    firstPlayer: deal.turn,
+    balances: deal.balances,
+    nicknames,
+    bots,
+    you: p.id,
+    players: room.game.players,
+    stake: room.stake,
+    mustPlay3S: mustPlay3S(room.game, p.id),
+  }));
 
-  if (dealResult.type === 'instant-win') {
-    const winResult = resolveInstantWin(room.game, dealResult.winner, dealResult.pot);
-    room.handActive = false;
-    saveOnlineChips(rankedHandMovements(room));
-    for (const p of room.players) {
-      if (p.isBot) continue;
-      io.to(p.id).emit('game-start', {
-        hand: dealResult.hands[p.id],
-        firstPlayer: dealResult.winner,
-        balances: room.game.balances,
-        nicknames,
-        bots,
-        you: p.id,
-        players: room.game.players,
-      });
-      io.to(p.id).emit('instant-win', {
-        winner: dealResult.winner,
-        winnerNickname: nicknames[dealResult.winner],
-        instantWin: dealResult.instantWin,
-        balances: winResult.balances,
-      });
-    }
+  if (deal.result) {
+    broadcastHandOver(room, deal.result);
     return;
   }
-
-  room.handActive = true;
-  for (const p of room.players) {
-    if (p.isBot) continue;
-    io.to(p.id).emit('game-start', {
-      hand: dealResult.hands[p.id],
-      firstPlayer: dealResult.turn,
-      balances: dealResult.balances,
-      nicknames,
-      bots,
-      you: p.id,
-      players: room.game.players,
-      mustPlay3S: dealResult.turn === p.id && dealResult.mustPlay3S,
-    });
-  }
-
   scheduleBotIfNeeded(room);
+}
+
+function broadcastChop(room, chop) {
+  const nicknames = getNicknames(room);
+  emitToHumans(room, 'chop', { ...chop, byName: nicknames[chop.by], victimName: nicknames[chop.victim] });
 }
 
 function broadcastState(room, result) {
   const nicknames = getNicknames(room);
   const bots = getBotFlags(room);
-
-  if (result.bombPenalty) {
-    const bp = result.bombPenalty;
-    for (const p of room.players) {
-      if (p.isBot) continue;
-      io.to(p.id).emit('bomb-penalty', {
-        victim: bp.victim,
-        victimNickname: nicknames[bp.victim],
-        bomber: bp.bomber,
-        bomberNickname: nicknames[bp.bomber],
-        penalty: bp.penalty,
-      });
-    }
-  }
-
-  for (const p of room.players) {
-    if (p.isBot) continue;
-    const state = getGameState(room.game, p.id);
-    io.to(p.id).emit('game-state', {
-      ...state,
-      lastPlay: result.combo ? { cards: result.combo.cards, playedBy: result.playedBy } : undefined,
-      passedBy: result.passedBy,
-      newRound: result.type === 'new-round' || result.type === 'pass',
-      nicknames,
-      bots,
-    });
-  }
+  const away = getAway(room);
+  emitToHumans(room, 'game-state', (p) => ({
+    ...getGameState(room.game, p.id),
+    lastPlay: result.combo ? { cards: result.combo.cards, playedBy: result.playedBy } : undefined,
+    passedBy: result.passedBy,
+    newRound: result.type === 'new-round' || Boolean(result.newRound),
+    nicknames,
+    bots,
+    away,
+  }));
 }
 
-function scheduleBotIfNeeded(room) {
-  if (!room.game) return;
-  const currentTurn = room.game.turn;
-  const botPlayer = room.players.find(p => p.id === currentTurn && p.isBot);
-  if (!botPlayer) return;
-
-  const delay = 800 + Math.random() * 1200;
-  setTimeout(() => executeBotTurn(room, botPlayer.id), delay);
-}
-
-function executeBotTurn(room, botId) {
-  if (!room.game || room.game.turn !== botId) return;
-
-  const hand = room.game.hands[botId];
-  if (!hand || hand.length === 0) return;
-
-  const tableCombo = room.game.table ? room.game.table.combo : null;
-  const mustPlay3S = !room.game.table &&
-    room.game.roundStarter === botId &&
-    hand.some(c => c.rank === '3' && c.suit === 'S');
-
-  const play = findBotPlay(hand, tableCombo, mustPlay3S);
-
-  if (!play && tableCombo) {
-    const result = pass(room.game, botId);
-    if (result.error) return;
-
-    broadcastState(room, result);
-    scheduleBotIfNeeded(room);
-    return;
-  }
-
-  if (!play) {
-    if (!tableCombo && hand.length > 0) {
-      const cardIds = [hand[0].id];
-      const result = playCards(room.game, botId, cardIds);
-      if (result.error) return;
-
-      if (result.type === 'hand-over') {
-        broadcastHandOver(room, result);
-        return;
-      }
-
-      broadcastState(room, result);
-      scheduleBotIfNeeded(room);
-    }
-    return;
-  }
-
-  const cardIds = play.cards.map(c => c.id);
-  const result = playCards(room.game, botId, cardIds);
-  if (result.error) return;
-
+function handleResult(room, result) {
+  if (result.chop) broadcastChop(room, result.chop);
   if (result.type === 'hand-over') {
     broadcastHandOver(room, result);
     return;
   }
-
   broadcastState(room, result);
   scheduleBotIfNeeded(room);
+}
+
+function scheduleBotIfNeeded(room) {
+  if (!room.game || room.game.handOver) return;
+  const turn = room.game.turn;
+  if (!isAutoPlayed(room, turn)) return;
+  clearTimeout(room.botTimer);
+  const away = room.players.find((p) => p.id === turn)?.away;
+  const delay = away ? 700 : 800 + Math.random() * 1200;
+  room.botTimer = setTimeout(() => executeBotTurn(room, turn), delay);
+}
+
+function executeBotTurn(room, playerId) {
+  const game = room.game;
+  if (!game || game.handOver || game.turn !== playerId) return;
+
+  const hand = game.hands[playerId];
+  const table = game.table ? game.table.combo : null;
+  const choice = findBotPlay(hand, table, mustPlay3S(game, playerId));
+
+  let result = choice ? playCards(game, playerId, choice.cards.map((c) => c.id)) : null;
+  if (!result || result.error) {
+    result = table ? pass(game, playerId) : playCards(game, playerId, [hand[0].id]);
+  }
+  if (result.error) return;
+  handleResult(room, result);
+}
+
+function handleLeave(socket) {
+  leaveMatchmaking(socket.id);
+  const left = leaveSeat(socket.id);
+  if (!left) return;
+
+  const { room } = left;
+  socket.leave(room.code);
+  broadcastRoomList();
+
+  if (left.away) {
+    emitToHumans(room, 'player-away', { playerId: socket.id, nickname: getNicknames(room)[socket.id] });
+    scheduleBotIfNeeded(room);
+  } else if (!left.closed) {
+    emitToHumans(room, 'player-left', { nicknames: getNicknames(room), playerCount: room.players.length });
+  }
 }
 
 io.use(async (socket, next) => {
@@ -245,8 +189,6 @@ io.use(async (socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log(`Connected: ${socket.id}`);
-
   socket.on('watch-rooms', () => {
     socket.join('room-browser');
     socket.emit('room-list', listOpenRooms());
@@ -256,12 +198,12 @@ io.on('connection', (socket) => {
     socket.leave('room-browser');
   });
 
-  socket.on('create-room', ({ nickname, ante, maxPlayers, fillWithBots, isPublic } = {}) => {
+  socket.on('create-room', ({ nickname, stake, maxPlayers, fillWithBots, isPublic } = {}) => {
     const player = socket.data.player;
     const code = createRoom(
       socket.id,
       player?.name || nickname,
-      Math.max(1, Math.min(1000, parseInt(ante) || 10)),
+      Math.max(1, Math.min(100, parseInt(stake) || 10)),
       parseInt(maxPlayers) || 4,
       fillWithBots === true,
       isPublic === true,
@@ -270,7 +212,6 @@ io.on('connection', (socket) => {
     socket.join(code);
     socket.emit('room-created', { roomCode: code });
     broadcastRoomList();
-    console.log(`Room ${code} created`);
   });
 
   socket.on('join-room', ({ roomCode, nickname } = {}) => {
@@ -287,23 +228,17 @@ io.on('connection', (socket) => {
     broadcastRoomList();
 
     if (result.waiting) {
-      const nicknames = getNicknames(result.room);
-      const bots = getBotFlags(result.room);
-      for (const p of result.room.players) {
-        if (p.isBot) continue;
-        io.to(p.id).emit('player-joined', {
-          nicknames,
-          bots,
-          playerCount: result.room.players.length,
-          maxPlayers: result.room.maxPlayers,
-          roomCode: code,
-        });
-      }
+      emitToHumans(result.room, 'player-joined', {
+        nicknames: getNicknames(result.room),
+        bots: getBotFlags(result.room),
+        playerCount: result.room.players.length,
+        maxPlayers: result.room.maxPlayers,
+        roomCode: code,
+      });
       return;
     }
 
     broadcastGameStart(result.room, result.dealResult);
-    console.log(`Player joined room ${code}`);
   });
 
   socket.on('start-game', () => {
@@ -320,24 +255,16 @@ io.on('connection', (socket) => {
     broadcastGameStart(result.room, result.dealResult);
   });
 
-  socket.on('play-cards', ({ cardIds }) => {
+  socket.on('play-cards', ({ cardIds } = {}) => {
     const room = getRoomBySocket(socket.id);
     if (!room || !room.game) return;
 
     const result = playCards(room.game, socket.id, cardIds);
-
     if (result.error) {
       socket.emit('invalid-play', { reason: result.error });
       return;
     }
-
-    if (result.type === 'hand-over') {
-      broadcastHandOver(room, result);
-      return;
-    }
-
-    broadcastState(room, result);
-    scheduleBotIfNeeded(room);
+    handleResult(room, result);
   });
 
   socket.on('pass', () => {
@@ -345,14 +272,11 @@ io.on('connection', (socket) => {
     if (!room || !room.game) return;
 
     const result = pass(room.game, socket.id);
-
     if (result.error) {
       socket.emit('invalid-play', { reason: result.error });
       return;
     }
-
-    broadcastState(room, result);
-    scheduleBotIfNeeded(room);
+    handleResult(room, result);
   });
 
   socket.on('new-hand', () => {
@@ -365,34 +289,13 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (result.kicked && result.kicked.length > 0) {
-      const nicknames = getNicknames(room);
-      for (const k of result.kicked) {
-        if (!k.isBot) {
-          io.to(k.id).emit('kicked-low-balance', {
-            balance: k.balance,
-            ante: room.ante,
-          });
-        }
-        for (const p of room.players) {
-          if (!p.isBot) {
-            io.to(p.id).emit('player-kicked', {
-              nickname: k.nickname,
-              reason: 'low-balance',
-            });
-          }
-        }
-      }
+    for (const k of result.kicked || []) {
+      if (!k.isBot) io.to(k.id).emit('kicked-low-balance', { balance: k.balance, needed: minBalance(room.stake) });
+      emitToHumans(room, 'player-kicked', { nickname: k.nickname, reason: 'low-balance' });
     }
 
     if (result.type === 'game-over') {
-      for (const p of room.players) {
-        if (!p.isBot) {
-          io.to(p.id).emit('game-over-insufficient', {
-            reason: 'Not enough players to continue',
-          });
-        }
-      }
+      emitToHumans(room, 'game-over-insufficient', { reason: 'Not enough players to continue' });
       return;
     }
 
@@ -405,7 +308,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const betAmount = Math.max(10, Math.min(1000, parseInt(bet) || 10));
+    const stake = Math.max(1, Math.min(250, parseInt(bet) || 10));
     const players = Math.min(Math.max(parseInt(maxPlayers) || 4, 2), 4);
 
     let player;
@@ -430,8 +333,8 @@ io.on('connection', (socket) => {
       socket.emit('match-error', { error: 'Accept the terms to play Quick Match.', needsConsent: true });
       return;
     }
-    if (balance < betAmount) {
-      socket.emit('match-error', { error: `You need at least ${betAmount} chips for this bet. You have ${balance}.` });
+    if (balance < minBalance(stake)) {
+      socket.emit('match-error', { error: `You need at least ${minBalance(stake)} chips for this stake. You have ${balance}.` });
       return;
     }
     if (isUserBusy(player.userId)) {
@@ -439,21 +342,12 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const result = joinMatchmaking(socket.id, player, betAmount, players, balance);
-
+    const result = joinMatchmaking(socket.id, player, stake, players, balance);
     if (result.matched) {
-      for (const p of result.room.players) {
-        const playerSocket = io.sockets.sockets.get(p.id);
-        if (playerSocket) playerSocket.join(result.code);
-      }
+      for (const p of result.room.players) io.sockets.sockets.get(p.id)?.join(result.code);
       broadcastGameStart(result.room, result.dealResult);
-      console.log(`Match found: ${result.code} (bet: ${betAmount})`);
     } else {
-      socket.emit('match-queued', {
-        position: result.position,
-        needed: result.needed,
-        bet: betAmount,
-      });
+      socket.emit('match-queued', { position: result.position, needed: result.needed, bet: stake });
     }
   });
 
@@ -462,60 +356,17 @@ io.on('connection', (socket) => {
     socket.emit('match-cancelled');
   });
 
-  socket.on('leave-room', () => {
-    const rankedEnded = endRankedMatch(socket.id);
-    const room = removePlayer(socket.id);
-    if (room) {
-      socket.leave(room.code);
-      for (const p of room.players) {
-        if (p.id !== socket.id && !p.isBot) {
-          io.to(p.id).emit('player-left', {
-            playerId: socket.id,
-            nicknames: getNicknames(room),
-            playerCount: room.players.length,
-          });
-          if (rankedEnded) io.to(p.id).emit('player-disconnected', { playerId: socket.id });
-        }
-      }
-      broadcastRoomList();
-      console.log(`Player left room ${room.code}`);
-    }
-  });
+  socket.on('leave-room', () => handleLeave(socket));
 
-  socket.on('emote', ({ emoteId }) => {
+  socket.on('emote', ({ emoteId } = {}) => {
     const room = getRoomBySocket(socket.id);
     if (!room) return;
-
-    for (const p of room.players) {
-      if (p.id !== socket.id && !p.isBot) {
-        io.to(p.id).emit('emote', { from: socket.id, emoteId });
-      }
+    for (const p of humans(room)) {
+      if (p.id !== socket.id) io.to(p.id).emit('emote', { from: socket.id, emoteId });
     }
   });
 
-  socket.on('disconnect', () => {
-    leaveMatchmaking(socket.id);
-    endRankedMatch(socket.id);
-    const room = removePlayer(socket.id);
-    if (room) {
-      broadcastRoomList();
-      const remainingHumans = room.players.filter(p => !p.isBot);
-
-      if (remainingHumans.length === 0) {
-        console.log(`Room ${room.code} deleted, no humans left`);
-      } else {
-        for (const p of room.players) {
-          if (p.id !== socket.id && !p.isBot) {
-            io.to(p.id).emit('player-disconnected', { playerId: socket.id });
-          }
-        }
-        scheduleBotIfNeeded(room);
-      }
-
-      console.log(`Player disconnected from room ${room.code}`);
-    }
-    console.log(`Disconnected: ${socket.id}`);
-  });
+  socket.on('disconnect', () => handleLeave(socket));
 });
 
 app.get('*', (req, res) => {

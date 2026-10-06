@@ -3,15 +3,15 @@ import { getMe, signIn } from '../utils/api.js';
 import ConsentGate from '../pages/ConsentGate.jsx';
 import MoneyDisplay from './MoneyDisplay.jsx';
 
-const BET_OPTIONS = [10, 25, 50, 100, 250, 500];
+const STAKE_OPTIONS = [5, 10, 25, 50, 100, 250];
+const STAKES_TO_PLAY = 10;
 
 const CHIP_RULES = [
   ['Start', '1,000 chips, plus 100 a day while you have less'],
-  ['Bet', 'Everyone puts it in the pot. Winner takes it all'],
-  ['Cards left', 'Losers pay 1 chip per card, 5 per 2'],
-  ['Bombed 2', 'Pay the bet per black 2, double per red 2'],
-  ['Instant win', 'Winner takes the pot, no card penalties'],
-  ['Leaving', 'Mid-hand, you pay the bet plus your card penalty'],
+  ['Scoring', 'Same points as the score tracker: places, chops, 2s left, 3♠ finish, cóng'],
+  ['Stake', 'Each point is worth the stake. Every hand adds up to zero'],
+  ['Table', 'You need 10× the stake to sit down'],
+  ['Leaving', 'A bot finishes your hand and you keep the result'],
 ];
 
 function ChipInfo() {
@@ -67,13 +67,13 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
   const [me, setMe] = useState(undefined);
   const [nickname, setNickname] = useState('');
   const [joinCode, setJoinCode] = useState(urlRoomCode || '');
-  const [ante, setAnte] = useState(10);
+  const [stake, setStake] = useState(10);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [fillWithBots, setFillWithBots] = useState(false);
   const [isPublic, setIsPublic] = useState(true);
   const [waiting, setWaiting] = useState(false);
   const [lobbyPlayers, setLobbyPlayers] = useState([]);
-  const [matchBet, setMatchBet] = useState(50);
+  const [matchBet, setMatchBet] = useState(10);
   const [matchPlayers, setMatchPlayers] = useState(4);
   const [searching, setSearching] = useState(false);
   const [queueInfo, setQueueInfo] = useState(null);
@@ -182,7 +182,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
     setError(null);
     socket.emit('create-room', {
       nickname: playerName,
-      ante,
+      stake,
       maxPlayers,
       fillWithBots,
       isPublic,
@@ -258,7 +258,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
               <div className="match-bet-display">
                 <span className="money-chip" />
                 <span className="match-bet-amount">{matchBet}</span>
-                <span className="chip-label">chips</span>
+                <span className="chip-label">per point</span>
               </div>
               <p className="waiting-text">
                 {queueInfo
@@ -308,13 +308,14 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                     <div className="chip-balance">
                       Your chips <MoneyDisplay amount={balance} />
                     </div>
+                    <p className="section-desc">Chips per point</p>
                     <div className="bet-grid">
-                      {BET_OPTIONS.map((amount) => (
+                      {STAKE_OPTIONS.map((amount) => (
                         <button
                           key={amount}
                           className={`bet-option ${matchBet === amount ? 'bet-selected' : ''}`}
                           onClick={() => setMatchBet(amount)}
-                          disabled={amount > balance}
+                          disabled={amount * STAKES_TO_PLAY > balance}
                         >
                           <span className="money-chip" />
                           {amount}
@@ -333,11 +334,13 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                         <option value={4}>4</option>
                       </select>
                     </div>
-                    <button onClick={handleFindMatch} disabled={matchBet > balance} className="btn btn-primary">
+                    <button onClick={handleFindMatch} disabled={matchBet * STAKES_TO_PLAY > balance} className="btn btn-primary">
                       Find Match
                     </button>
-                    {matchBet > balance && (
-                      <p className="section-desc section-desc-after">Not enough chips for this bet. Pick a smaller one.</p>
+                    {matchBet * STAKES_TO_PLAY > balance && (
+                      <p className="section-desc section-desc-after">
+                        You need {matchBet * STAKES_TO_PLAY} chips for this stake. Pick a smaller one.
+                      </p>
                     )}
                   </>
                 )}
@@ -359,7 +362,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                           <div className="room-row-info">
                             <span className="room-row-host">{r.host}'s room</span>
                             <span className="room-row-meta">
-                              Ante {r.ante} · {r.players}/{r.maxPlayers} players{r.fillWithBots ? ' · bots fill seats' : ''}
+                              {r.stake} per point · {r.players}/{r.maxPlayers} players{r.fillWithBots ? ' · bots fill seats' : ''}
                             </span>
                           </div>
                           <button
@@ -385,11 +388,11 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                 <h2>Create Room</h2>
                 <p className="section-desc">Rooms use practice chips. Nothing is saved to your account.</p>
                 <div className="ante-row">
-                  <label>Ante:</label>
+                  <label>Per point:</label>
                   <input
                     type="number"
-                    value={ante}
-                    onChange={(e) => setAnte(Math.max(1, parseInt(e.target.value) || 1))}
+                    value={stake}
+                    onChange={(e) => setStake(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
                     min={1}
                     max={100}
                     className="lobby-input ante-input"

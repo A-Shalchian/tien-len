@@ -656,10 +656,6 @@ body {
   accent-color: #3a7d44;
 }
 
-.loser-details {
-  margin-bottom: 4px;
-}
-
 .table-area {
   flex: 1;
   display: flex;
@@ -974,6 +970,63 @@ body {
 
 .chip-change.positive {
   color: #5cb85c;
+}
+
+.place-label {
+  color: #f0c040;
+  font-weight: 700;
+}
+
+.result-table {
+  width: 100%;
+  max-width: 420px;
+  border-collapse: collapse;
+  margin: 12px 0 4px;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #777;
+  text-align: right;
+  padding: 6px 8px;
+  border-bottom: 1px solid #333;
+}
+
+.result-table td {
+  padding: 8px;
+  text-align: right;
+  color: #ddd;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.result-table th:nth-child(-n+2),
+.result-table td:nth-child(-n+2) {
+  text-align: left;
+}
+
+.result-table .result-me td {
+  background: rgba(240, 192, 64, 0.08);
+}
+
+.result-table .positive {
+  color: #5cb85c;
+}
+
+.result-table .negative {
+  color: #e74c3c;
+}
+
+.result-events {
+  width: 100%;
+  max-width: 420px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #aaa;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 .chip-change.negative {

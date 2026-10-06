@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { pool, transaction } from './db.js';
 import { getUser } from './auth.js';
 import { hasAcceptedTerms } from './profile.js';
-import { gameChips } from './chips.js';
+import { gameChips } from './game/payout.js';
 import { DEFAULT_PLACE_POINTS, DEFAULT_PENALTIES, gameDeltas } from '../client/src/utils/scoring.js';
 
 const DEFAULT_CHIP_RATE = 10;

@@ -123,8 +123,8 @@ function PublicPreview({ data, me }) {
   const { t } = useLang();
   const { hideFromLeaderboard, privateProfile } = me.profile;
   const shown = hideFromLeaderboard
-    ? { ...data, isMe: false, balance: null, online: { ...data.online, chips: null } }
-    : { ...data, isMe: false };
+    ? { ...data, name: data.publicName, isMe: false, balance: null, online: { ...data.online, chips: null } }
+    : { ...data, name: data.publicName, isMe: false };
   return (
     <div className="st-wide pf-layout pf-layout-solo">
       <p className="st-lead pf-preview">

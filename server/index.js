@@ -6,7 +6,7 @@ import { toNodeHandler } from 'better-auth/node';
 import scoresRouter from './scores.js';
 import profileRouter, { loadProfile } from './profile.js';
 import { createAdminRouter } from './admin.js';
-import { auth, getUserFromHeaders } from './auth.js';
+import { auth, getUserFromHeaders, publicName } from './auth.js';
 import { getBalance, recordOnlineHand } from './chips.js';
 import { createGameServer, MAX_MESSAGE_BYTES } from './game-server.js';
 import {
@@ -50,7 +50,7 @@ const io = new Server(httpServer, {
 async function loadPlayer(userId) {
   const profile = await loadProfile(userId);
   if (!profile) return null;
-  return { userId: profile.id, name: profile.name, termsAccepted: !!profile.termsAcceptedAt };
+  return { userId: profile.id, name: publicName(profile.displayName, profile.googleName), termsAccepted: !!profile.termsAcceptedAt };
 }
 
 const game = createGameServer(io, { getUser: getUserFromHeaders, loadPlayer, getBalance, recordOnlineHand });

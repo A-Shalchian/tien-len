@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import { pool } from './db.js';
+export { cleanImage, cleanName, publicName } from './names.js';
 
 export const STARTING_CHIPS = 1000;
 
@@ -13,14 +14,6 @@ const UNUSED_AUTH_PATHS = [
   '/sign-up/email', '/sign-in/email', '/request-password-reset', '/reset-password',
   '/send-verification-email', '/verify-email',
 ];
-
-export function cleanImage(url) {
-  return typeof url === 'string' && url.startsWith('https://lh3.googleusercontent.com/') ? url : null;
-}
-
-export function cleanName(name) {
-  return typeof name === 'string' ? name.trim().slice(0, 40) || 'Player' : 'Player';
-}
 
 export const auth = betterAuth({
   database: pool,

@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool, transaction } from './db.js';
-import { getUser, isAdmin, cleanImage, cleanName } from './auth.js';
+import { getUser, isAdmin, cleanImage, cleanName, publicName } from './auth.js';
 import { getBalance, applyDailyTopUp } from './chips.js';
 import { gameChips } from './game/payout.js';
 import {
@@ -363,7 +363,8 @@ router.get('/users/:id', handle(async (req, res) => {
   const online = await onlineStats(profile.id);
   const base = {
     id: profile.id,
-    name: profile.name,
+    name: isMe ? profile.name : publicName(profile.displayName, profile.googleName),
+    publicName: publicName(profile.displayName, profile.googleName),
     image: profile.image,
     joinedAt: profile.createdAt,
     isMe,
@@ -389,7 +390,7 @@ const leaderboard = { rows: null, at: 0 };
 router.get('/leaderboard', handle(async (req, res) => {
   if (leaderboard.rows && Date.now() - leaderboard.at < LEADERBOARD_TTL_MS) return res.json(leaderboard.rows);
   const { rows } = await pool.query(
-    `select u.id, coalesce(pr.display_name, u.name) as name,
+    `select u.id, coalesce(pr.display_name, u.name) as name, pr.display_name, u.name as google_name,
             case when pr.hide_avatar then null else u.image end as image,
             coalesce(pr.private_profile, false) as private_profile,
             coalesce(sum(l.amount), 0)::int as balance
@@ -403,7 +404,7 @@ router.get('/leaderboard', handle(async (req, res) => {
   );
   leaderboard.rows = rows.map((r) => ({
     id: r.private_profile ? null : r.id,
-    name: cleanName(r.name),
+    name: publicName(r.display_name, r.google_name),
     image: cleanImage(r.image),
     balance: r.balance,
   }));

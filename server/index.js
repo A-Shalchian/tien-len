@@ -12,6 +12,7 @@ import { createGameServer, MAX_MESSAGE_BYTES } from './game-server.js';
 import {
   securityHeaders, allowedOrigins, isAllowedOrigin, authLimiter, inviteLimiter, apiLimiter,
 } from './security.js';
+import { createSeo } from './seo.js';
 import { migrate } from './migrate.js';
 
 import { fileURLToPath } from 'url';
@@ -28,7 +29,8 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(securityHeaders());
 app.use(cors({ origin: allowedOrigins() }));
-app.use(express.static(clientDist));
+app.use(createSeo(clientDist));
+app.use(express.static(clientDist, { index: false }));
 app.use('/api/auth', authLimiter);
 app.use('/api/join', inviteLimiter);
 app.use('/api', apiLimiter);

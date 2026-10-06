@@ -1,6 +1,9 @@
+import crypto from 'crypto';
 import { createGame, dealHand } from './game/engine.js';
 import { createBotId, pickBotName } from './game/bot.js';
 import { minBalance } from './game/payout.js';
+
+export const REJOIN_GRACE_MS = 60000;
 
 const rooms = new Map();
 const socketToRoom = new Map();
@@ -24,12 +27,31 @@ function newCode() {
   return code;
 }
 
-function createRoom(hostSocketId, nickname, stake = 10, maxPlayers = 4, fillWithBots = false, isPublic = false, userId = null) {
+function humanSeat(conn) {
+  return {
+    id: `p_${crypto.randomBytes(6).toString('hex')}`,
+    socketId: conn.socketId,
+    key: conn.key || null,
+    userId: conn.userId || null,
+    nickname: sanitizeNickname(conn.nickname),
+    isBot: false,
+    away: false,
+    left: false,
+    awaySince: null,
+  };
+}
+
+function seatOf(room, socketId) {
+  return room?.players.find((p) => p.socketId === socketId && !p.away) || null;
+}
+
+function createRoom(conn, stake = 10, maxPlayers = 4, fillWithBots = false, isPublic = false) {
   const code = newCode();
+  const host = humanSeat(conn);
   rooms.set(code, {
     code,
-    host: hostSocketId,
-    players: [{ id: hostSocketId, nickname: sanitizeNickname(nickname), isBot: false, userId, away: false }],
+    host: host.id,
+    players: [host],
     game: null,
     stake,
     maxPlayers: Math.min(Math.max(maxPlayers, 2), 4),
@@ -37,22 +59,23 @@ function createRoom(hostSocketId, nickname, stake = 10, maxPlayers = 4, fillWith
     isPublic,
     ranked: false,
     readyForNext: new Set(),
+    lastResult: null,
   });
-  socketToRoom.set(hostSocketId, code);
+  socketToRoom.set(conn.socketId, code);
   return code;
 }
 
-function joinRoom(code, socketId, nickname, userId = null) {
+function joinRoom(code, conn) {
   const room = rooms.get(code);
   if (!room || room.ranked) return { error: 'Room not found' };
   if (room.game) return { error: 'Game already in progress' };
-  if (room.players.some((p) => p.id === socketId)) return { error: 'Already in room' };
+  if (seatOf(room, conn.socketId)) return { error: 'Already in room' };
 
   const humans = room.players.filter((p) => !p.isBot).length;
   if (room.players.length >= room.maxPlayers || humans >= room.maxPlayers) return { error: 'Room is full' };
 
-  room.players.push({ id: socketId, nickname: sanitizeNickname(nickname), isBot: false, userId, away: false });
-  socketToRoom.set(socketId, code);
+  room.players.push(humanSeat(conn));
+  socketToRoom.set(conn.socketId, code);
 
   const humanCount = humans + 1;
   const shouldStart = humanCount >= room.maxPlayers || (room.fillWithBots && humanCount >= 2);
@@ -62,10 +85,10 @@ function joinRoom(code, socketId, nickname, userId = null) {
   return startGame(room);
 }
 
-function startManually(code, socketId) {
-  const room = rooms.get(code);
+function startManually(socketId) {
+  const room = getRoomBySocket(socketId);
   if (!room) return { error: 'Room not found' };
-  if (room.host !== socketId) return { error: 'Only the host can start the game' };
+  if (room.host !== seatOf(room, socketId)?.id) return { error: 'Only the host can start the game' };
   if (room.game) return { error: 'Game already in progress' };
 
   if (room.fillWithBots) fillRoomWithBots(room);
@@ -79,7 +102,7 @@ function fillRoomWithBots(room) {
   while (room.players.length < room.maxPlayers) {
     const botName = pickBotName(usedNames);
     usedNames.push(botName);
-    room.players.push({ id: createBotId(), nickname: botName, isBot: true, away: false });
+    room.players.push({ id: createBotId(), socketId: null, nickname: botName, isBot: true, away: false });
   }
 }
 
@@ -113,12 +136,18 @@ function activeHumans(room) {
   return room.players.filter((p) => !p.isBot && !p.away);
 }
 
+function canReturn(seat, now = Date.now()) {
+  return seat.away && !seat.left && now - seat.awaySince < REJOIN_GRACE_MS;
+}
+
 function deleteRoom(room) {
-  for (const p of room.players) socketToRoom.delete(p.id);
+  for (const p of room.players) if (p.socketId) socketToRoom.delete(p.socketId);
   rooms.delete(room.code);
 }
 
 function dropPlayer(room, playerId) {
+  const seat = room.players.find((p) => p.id === playerId);
+  if (seat?.socketId && socketToRoom.get(seat.socketId) === room.code) socketToRoom.delete(seat.socketId);
   room.players = room.players.filter((p) => p.id !== playerId);
   if (room.game) {
     room.game.players = room.game.players.filter((p) => p !== playerId);
@@ -127,107 +156,135 @@ function dropPlayer(room, playerId) {
     if (room.game.previousWinner === playerId) room.game.previousWinner = null;
   }
   room.readyForNext.delete(playerId);
-  socketToRoom.delete(playerId);
 }
 
-function leaveSeat(socketId) {
+function leaveSeat(socketId, { left }) {
   const room = getRoomBySocket(socketId);
-  if (!room) return null;
+  const seat = seatOf(room, socketId);
   socketToRoom.delete(socketId);
+  if (!seat) return null;
 
-  const seat = room.players.find((p) => p.id === socketId);
-  const handLive = room.game && !room.game.handOver && room.game.players.includes(socketId);
-
-  if (handLive) {
+  const handLive = room.game && !room.game.handOver;
+  const keep = room.game && (handLive || !left);
+  if (keep) {
     seat.away = true;
+    seat.left = left;
+    seat.awaySince = Date.now();
   } else {
-    dropPlayer(room, socketId);
+    dropPlayer(room, seat.id);
   }
 
-  if (activeHumans(room).length === 0) {
+  const someoneCanReturn = room.players.some((p) => canReturn(p));
+  if (activeHumans(room).length === 0 && !someoneCanReturn && !handLive) {
     deleteRoom(room);
-    return { room, away: handLive, closed: true };
+    return { room, seat, away: keep, closed: true };
   }
-  if (room.host === socketId) room.host = activeHumans(room)[0].id;
-  return { room, away: handLive, closed: false };
+  if (room.host === seat.id && activeHumans(room).length > 0) room.host = activeHumans(room)[0].id;
+  return { room, seat, away: keep, closed: false };
+}
+
+function rejoinSeat(socketId, { userId, key }) {
+  for (const room of rooms.values()) {
+    const seat = room.players.find((p) => !p.isBot && canReturn(p)
+      && ((userId && p.userId === userId) || (key && p.key === key)));
+    if (!seat) continue;
+    seat.socketId = socketId;
+    seat.away = false;
+    seat.awaySince = null;
+    socketToRoom.set(socketId, room.code);
+    return { room, seat };
+  }
+  return null;
 }
 
 function dropAwayPlayers(room) {
-  const away = room.players.filter((p) => p.away).map((p) => p.id);
-  for (const id of away) dropPlayer(room, id);
-  return away;
+  const gone = room.players.filter((p) => p.away && !canReturn(p)).map((p) => p.id);
+  for (const id of gone) dropPlayer(room, id);
+  return gone;
+}
+
+function closeIfAbandoned(room) {
+  if (!rooms.has(room.code)) return true;
+  dropAwayPlayers(room);
+  if (activeHumans(room).length > 0 || room.players.some((p) => canReturn(p))) return false;
+  if (room.game && !room.game.handOver) return false;
+  deleteRoom(room);
+  return true;
 }
 
 function checkAndRemoveBrokePlayers(room) {
   const needed = minBalance(room.stake);
   const kicked = room.players
     .filter((p) => room.game.balances[p.id] < needed)
-    .map((p) => ({ id: p.id, nickname: p.nickname, isBot: p.isBot, balance: room.game.balances[p.id] }));
+    .map((p) => ({ id: p.id, socketId: p.socketId, nickname: p.nickname, isBot: p.isBot, balance: room.game.balances[p.id] }));
   for (const k of kicked) dropPlayer(room, k.id);
   return kicked;
 }
 
-function requestNewHand(room, socketId) {
-  if (!room.game || !room.game.handOver) return null;
+function requestNewHand(socketId) {
+  const room = getRoomBySocket(socketId);
+  const seat = seatOf(room, socketId);
+  if (!seat || !room.game || !room.game.handOver) return null;
 
-  room.readyForNext.add(socketId);
+  room.readyForNext.add(seat.id);
   const waitingOn = activeHumans(room).filter((p) => !room.readyForNext.has(p.id));
-  if (waitingOn.length > 0) return null;
+  if (waitingOn.length > 0) return { room, waiting: true };
 
   room.readyForNext.clear();
+  dropAwayPlayers(room);
   const kicked = checkAndRemoveBrokePlayers(room);
   if (room.players.length < 2 || activeHumans(room).length === 0) {
-    return { type: 'game-over', kicked, reason: 'not-enough-players' };
+    return { room, type: 'game-over', kicked };
   }
+  room.lastResult = null;
   const result = dealHand(room.game);
-  result.kicked = kicked;
-  return result;
+  return { room, deal: result, kicked };
 }
 
 const matchQueues = new Map();
 
-function joinMatchmaking(socketId, player, stake, maxPlayers = 4, balance = 0) {
-  const key = `${stake}-${maxPlayers}`;
-  if (!matchQueues.has(key)) matchQueues.set(key, []);
-  const queue = matchQueues.get(key);
+function joinMatchmaking(conn, stake, maxPlayers = 4, balance = 0) {
+  const queueKey = `${stake}-${maxPlayers}`;
+  if (!matchQueues.has(queueKey)) matchQueues.set(queueKey, []);
+  const queue = matchQueues.get(queueKey);
 
-  if (queue.some((p) => p.id === socketId)) {
-    return { queued: true, position: queue.findIndex((p) => p.id === socketId) + 1, needed: maxPlayers };
-  }
+  const position = queue.findIndex((p) => p.socketId === conn.socketId);
+  if (position !== -1) return { queued: true, position: position + 1, needed: maxPlayers };
 
-  queue.push({ id: socketId, nickname: sanitizeNickname(player.name), userId: player.userId, balance });
+  queue.push({ ...conn, balance });
   if (queue.length < maxPlayers) return { queued: true, position: queue.length, needed: maxPlayers };
 
-  const players = queue.splice(0, maxPlayers);
-  if (queue.length === 0) matchQueues.delete(key);
+  const entries = queue.splice(0, maxPlayers);
+  if (queue.length === 0) matchQueues.delete(queueKey);
   const code = newCode();
-  const balances = Object.fromEntries(players.map((p) => [p.id, p.balance]));
+  const players = entries.map(humanSeat);
   const room = {
     code,
     host: players[0].id,
-    players: players.map((p) => ({ id: p.id, nickname: p.nickname, isBot: false, userId: p.userId, away: false })),
+    players,
     game: null,
     stake,
     maxPlayers,
     fillWithBots: false,
     isPublic: false,
     ranked: true,
-    startingBalances: balances,
+    startingBalances: Object.fromEntries(players.map((p, i) => [p.id, entries[i].balance])),
     readyForNext: new Set(),
+    lastResult: null,
   };
   rooms.set(code, room);
-  for (const p of players) socketToRoom.set(p.id, code);
+  for (const p of players) socketToRoom.set(p.socketId, code);
 
   const result = startGame(room);
-  return { matched: true, room, dealResult: result.dealResult, code };
+  return { matched: true, room, dealResult: result.dealResult };
 }
 
 function leaveMatchmaking(socketId) {
-  for (const [key, queue] of matchQueues) {
-    const idx = queue.findIndex((p) => p.id === socketId);
+  for (const [queueKey, queue] of matchQueues) {
+    const idx = queue.findIndex((p) => p.socketId === socketId);
     if (idx !== -1) {
       queue.splice(idx, 1);
-      if (queue.length === 0) matchQueues.delete(key);
+      if (queue.length === 0) matchQueues.delete(queueKey);
       return true;
     }
   }
@@ -258,15 +315,15 @@ function isUserBusy(userId) {
     if (queue.some((p) => p.userId === userId)) return true;
   }
   for (const room of rooms.values()) {
-    if (room.ranked && room.game && room.players.some((p) => p.userId === userId)) return true;
+    if (room.ranked && room.game && room.players.some((p) => p.userId === userId && !p.left)) return true;
   }
   return false;
 }
 
 export {
   rooms, createRoom, joinRoom, startManually,
-  getRoomBySocket, getNicknames, getBotFlags, getAway, isAutoPlayed,
-  leaveSeat, dropAwayPlayers, requestNewHand,
+  getRoomBySocket, seatOf, getNicknames, getBotFlags, getAway, isAutoPlayed,
+  leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
   listOpenRooms, isUserBusy,
 };

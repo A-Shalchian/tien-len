@@ -101,7 +101,7 @@ function HandResult({ result, myId, waiting, onNext }) {
   );
 }
 
-export default function Game({ socket, gameState, setGameState, nicknames, botFlags, myId, playerOrder, onGameState, onGameStart }) {
+export default function Game({ socket, gameState, setGameState, nicknames, botFlags, myId, playerOrder, rejoinResult, onGameState, onGameStart }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [handOver, setHandOver] = useState(null);
   const [toast, setToast] = useState(null);
@@ -127,6 +127,10 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     setToast(msg);
     setTimeout(() => setToast(null), ms);
   }, []);
+
+  useEffect(() => {
+    if (rejoinResult) setHandOver(rejoinResult);
+  }, [rejoinResult]);
 
   useEffect(() => {
     if (finished.length > prevFinishedRef.current) {
@@ -209,7 +213,11 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       }, 1500);
     };
 
-    const onPlayerAway = ({ nickname }) => showToast(`${nickname} left. A bot is finishing their hand.`, 3500);
+    const onPlayerAway = ({ nickname, left }) => showToast(
+      left ? `${nickname} left. A bot is finishing their hand.` : `${nickname} lost connection. A bot plays until they're back.`,
+      3500,
+    );
+    const onPlayerBack = ({ nickname }) => showToast(`${nickname} is back`);
     const onWaiting = () => setWaitingNext(true);
 
     const onKicked = (data) => {
@@ -236,6 +244,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     socket.on('invalid-play', onInvalidPlay);
     socket.on('emote', onEmote);
     socket.on('player-away', onPlayerAway);
+    socket.on('player-back', onPlayerBack);
     socket.on('waiting-for-opponent', onWaiting);
     socket.on('kicked-low-balance', onKicked);
     socket.on('game-over-insufficient', onGameOver);
@@ -249,6 +258,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       socket.off('invalid-play', onInvalidPlay);
       socket.off('emote', onEmote);
       socket.off('player-away', onPlayerAway);
+      socket.off('player-back', onPlayerBack);
       socket.off('waiting-for-opponent', onWaiting);
       socket.off('kicked-low-balance', onKicked);
       socket.off('game-over-insufficient', onGameOver);

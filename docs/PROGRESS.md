@@ -7,7 +7,7 @@
 - [x] Online rules: play out every place, bigger chops, last winner starts the next hand, 3♠ only on the first hand
 - [x] Online chips scored like the score tracker, each point worth the stake. Leaving mid-hand hands your seat to a bot. Engine tests in `server/game/engine.test.js` (`npm test` in server)
 - [x] Save Quick Match hands (place, points, chips per player). Profiles show online hands and wins, and your own profile has an Online tab. Practice rooms aren't saved.
-- [ ] Rejoin a game after a refresh or dropped connection
+- [x] Rejoin after a refresh or dropped connection. A bot plays your seat for up to 60 seconds while you're gone. Pressing Back still leaves for good.
 - [ ] Smarter bots
 - [ ] Score tracker works offline and has charts
 - [ ] Vietnamese language toggle for the whole site

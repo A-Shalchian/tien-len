@@ -4,11 +4,11 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import {
-  createRoom, joinRoom, startManually, getRoomBySocket,
+  createRoom, joinRoom, startManually, getRoomBySocket, seatOf,
   getNicknames, getBotFlags, getAway, isAutoPlayed,
-  leaveSeat, dropAwayPlayers, requestNewHand,
+  leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, isUserBusy,
+  listOpenRooms, isUserBusy, REJOIN_GRACE_MS,
 } from './rooms.js';
 import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
@@ -44,7 +44,7 @@ const io = new Server(httpServer, {
 
 function saveOnlineHand(room, result) {
   const seats = room.game.players;
-  const seatOf = (id) => String(seats.indexOf(id));
+  const seatNumber = (id) => String(seats.indexOf(id));
   const { data } = result;
   const players = seats.map((id, seat) => {
     const p = room.players.find((x) => x.id === id);
@@ -58,7 +58,7 @@ function saveOnlineHand(room, result) {
       chips: result.chips[id],
     };
   });
-  const hand = { id: crypto.randomBytes(6).toString('hex'), stake: room.stake, data: renamePlayers(data, seatOf), players };
+  const hand = { id: crypto.randomBytes(6).toString('hex'), stake: room.stake, data: renamePlayers(data, seatNumber), players };
   recordOnlineHand(hand).catch((err) => console.error('Failed to save online hand', err));
 }
 
@@ -72,8 +72,18 @@ function humans(room) {
 
 function emitToHumans(room, event, payload) {
   for (const p of humans(room)) {
-    io.to(p.id).emit(event, typeof payload === 'function' ? payload(p) : payload);
+    io.to(p.socketId).emit(event, typeof payload === 'function' ? payload(p) : payload);
   }
+}
+
+function connOf(socket, nickname) {
+  const player = socket.data.player;
+  return {
+    socketId: socket.id,
+    key: socket.data.key,
+    userId: player?.userId || null,
+    nickname: player?.name || nickname,
+  };
 }
 
 async function loadPlayer(userId) {
@@ -84,7 +94,7 @@ async function loadPlayer(userId) {
 
 function broadcastHandOver(room, result) {
   if (room.ranked) saveOnlineHand(room, result);
-  emitToHumans(room, 'hand-over', {
+  room.lastResult = {
     data: result.data,
     instantWinType: result.instantWinType,
     points: result.points,
@@ -93,27 +103,44 @@ function broadcastHandOver(room, result) {
     hands: result.hands,
     nicknames: getNicknames(room),
     stake: room.stake,
-  });
+  };
+  emitToHumans(room, 'hand-over', room.lastResult);
   const dropped = dropAwayPlayers(room);
   if (dropped.length > 0) {
     emitToHumans(room, 'player-left', { nicknames: getNicknames(room), playerCount: room.players.length });
   }
+  if (closeIfAbandoned(room)) broadcastRoomList();
+}
+
+function startPayload(room, p) {
+  const game = room.game;
+  return {
+    hand: game.hands[p.id] || [],
+    firstPlayer: game.turn,
+    balances: { ...game.balances },
+    nicknames: getNicknames(room),
+    bots: getBotFlags(room),
+    you: p.id,
+    players: game.players,
+    stake: room.stake,
+    mustPlay3S: mustPlay3S(game, p.id),
+  };
+}
+
+function statePayload(room, p, result = {}) {
+  return {
+    ...getGameState(room.game, p.id),
+    lastPlay: result.combo ? { cards: result.combo.cards, playedBy: result.playedBy } : undefined,
+    passedBy: result.passedBy,
+    newRound: result.type === 'new-round' || Boolean(result.newRound),
+    nicknames: getNicknames(room),
+    bots: getBotFlags(room),
+    away: getAway(room),
+  };
 }
 
 function broadcastGameStart(room, deal) {
-  const nicknames = getNicknames(room);
-  const bots = getBotFlags(room);
-  emitToHumans(room, 'game-start', (p) => ({
-    hand: deal.hands[p.id],
-    firstPlayer: deal.turn,
-    balances: deal.balances,
-    nicknames,
-    bots,
-    you: p.id,
-    players: room.game.players,
-    stake: room.stake,
-    mustPlay3S: mustPlay3S(room.game, p.id),
-  }));
+  emitToHumans(room, 'game-start', (p) => ({ ...startPayload(room, p), hand: deal.hands[p.id], balances: deal.balances }));
 
   if (deal.result) {
     broadcastHandOver(room, deal.result);
@@ -128,18 +155,7 @@ function broadcastChop(room, chop) {
 }
 
 function broadcastState(room, result) {
-  const nicknames = getNicknames(room);
-  const bots = getBotFlags(room);
-  const away = getAway(room);
-  emitToHumans(room, 'game-state', (p) => ({
-    ...getGameState(room.game, p.id),
-    lastPlay: result.combo ? { cards: result.combo.cards, playedBy: result.playedBy } : undefined,
-    passedBy: result.passedBy,
-    newRound: result.type === 'new-round' || Boolean(result.newRound),
-    nicknames,
-    bots,
-    away,
-  }));
+  emitToHumans(room, 'game-state', (p) => statePayload(room, p, result));
 }
 
 function handleResult(room, result) {
@@ -178,24 +194,37 @@ function executeBotTurn(room, playerId) {
   handleResult(room, result);
 }
 
-function handleLeave(socket) {
+function handleLeave(socket, left) {
   leaveMatchmaking(socket.id);
-  const left = leaveSeat(socket.id);
-  if (!left) return;
+  const out = leaveSeat(socket.id, { left });
+  if (!out) return;
 
-  const { room } = left;
+  const { room, seat } = out;
   socket.leave(room.code);
   broadcastRoomList();
+  if (out.closed) return;
 
-  if (left.away) {
-    emitToHumans(room, 'player-away', { playerId: socket.id, nickname: getNicknames(room)[socket.id] });
+  if (out.away) {
+    emitToHumans(room, 'player-away', { playerId: seat.id, nickname: seat.nickname, left });
+    if (room.game && !room.game.handOver) broadcastState(room, {});
     scheduleBotIfNeeded(room);
-  } else if (!left.closed) {
+    setTimeout(() => {
+      if (closeIfAbandoned(room)) broadcastRoomList();
+    }, REJOIN_GRACE_MS + 1000);
+  } else {
     emitToHumans(room, 'player-left', { nicknames: getNicknames(room), playerCount: room.players.length });
   }
 }
 
+function seatFor(socket) {
+  const room = getRoomBySocket(socket.id);
+  const seat = seatOf(room, socket.id);
+  return seat && room.game ? { room, seat } : null;
+}
+
 io.use(async (socket, next) => {
+  const key = socket.handshake.auth?.key;
+  socket.data.key = typeof key === 'string' && /^[\w-]{8,64}$/.test(key) ? key : null;
   try {
     const user = await getUserFromHeaders(socket.request.headers);
     socket.data.player = user ? await loadPlayer(user.id) : null;
@@ -217,15 +246,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('create-room', ({ nickname, stake, maxPlayers, fillWithBots, isPublic } = {}) => {
-    const player = socket.data.player;
     const code = createRoom(
-      socket.id,
-      player?.name || nickname,
+      connOf(socket, nickname),
       Math.max(1, Math.min(100, parseInt(stake) || 10)),
       parseInt(maxPlayers) || 4,
       fillWithBots === true,
       isPublic === true,
-      player?.userId || null,
     );
     socket.join(code);
     socket.emit('room-created', { roomCode: code });
@@ -234,8 +260,7 @@ io.on('connection', (socket) => {
 
   socket.on('join-room', ({ roomCode, nickname } = {}) => {
     const code = String(roomCode || '').toUpperCase();
-    const player = socket.data.player;
-    const result = joinRoom(code, socket.id, player?.name || nickname, player?.userId || null);
+    const result = joinRoom(code, connOf(socket, nickname));
 
     if (result.error) {
       socket.emit('join-error', { error: result.error });
@@ -260,10 +285,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('start-game', () => {
-    const room = getRoomBySocket(socket.id);
-    if (!room) return;
-
-    const result = startManually(room.code, socket.id);
+    const result = startManually(socket.id);
     if (result.error) {
       socket.emit('join-error', { error: result.error });
       return;
@@ -274,10 +296,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('play-cards', ({ cardIds } = {}) => {
-    const room = getRoomBySocket(socket.id);
-    if (!room || !room.game) return;
+    const found = seatFor(socket);
+    if (!found) return;
+    const { room, seat } = found;
 
-    const result = playCards(room.game, socket.id, cardIds);
+    const result = playCards(room.game, seat.id, cardIds);
     if (result.error) {
       socket.emit('invalid-play', { reason: result.error });
       return;
@@ -286,10 +309,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('pass', () => {
-    const room = getRoomBySocket(socket.id);
-    if (!room || !room.game) return;
+    const found = seatFor(socket);
+    if (!found) return;
+    const { room, seat } = found;
 
-    const result = pass(room.game, socket.id);
+    const result = pass(room.game, seat.id);
     if (result.error) {
       socket.emit('invalid-play', { reason: result.error });
       return;
@@ -298,17 +322,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('new-hand', () => {
-    const room = getRoomBySocket(socket.id);
-    if (!room || !room.game) return;
-
-    const result = requestNewHand(room, socket.id);
-    if (!result) {
+    const result = requestNewHand(socket.id);
+    if (!result) return;
+    if (result.waiting) {
       socket.emit('waiting-for-opponent');
       return;
     }
 
-    for (const k of result.kicked || []) {
-      if (!k.isBot) io.to(k.id).emit('kicked-low-balance', { balance: k.balance, needed: minBalance(room.stake) });
+    const { room } = result;
+    for (const k of result.kicked) {
+      if (!k.isBot && k.socketId) io.to(k.socketId).emit('kicked-low-balance', { balance: k.balance, needed: minBalance(room.stake) });
       emitToHumans(room, 'player-kicked', { nickname: k.nickname, reason: 'low-balance' });
     }
 
@@ -317,7 +340,27 @@ io.on('connection', (socket) => {
       return;
     }
 
-    broadcastGameStart(room, result);
+    broadcastGameStart(room, result.deal);
+  });
+
+  socket.on('rejoin', () => {
+    const found = rejoinSeat(socket.id, { userId: socket.data.player?.userId, key: socket.data.key });
+    if (!found) {
+      socket.emit('rejoin-none');
+      return;
+    }
+    const { room, seat } = found;
+    socket.join(room.code);
+    socket.emit('rejoined', {
+      roomCode: room.code,
+      start: startPayload(room, seat),
+      state: statePayload(room, seat),
+      handOver: room.game.handOver ? room.lastResult : null,
+    });
+    for (const p of humans(room)) {
+      if (p.id !== seat.id) io.to(p.socketId).emit('player-back', { playerId: seat.id, nickname: seat.nickname });
+    }
+    if (!room.game.handOver) broadcastState(room, {});
   });
 
   socket.on('find-match', async ({ bet, maxPlayers } = {}) => {
@@ -360,9 +403,9 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const result = joinMatchmaking(socket.id, player, stake, players, balance);
+    const result = joinMatchmaking(connOf(socket), stake, players, balance);
     if (result.matched) {
-      for (const p of result.room.players) io.sockets.sockets.get(p.id)?.join(result.code);
+      for (const p of result.room.players) io.sockets.sockets.get(p.socketId)?.join(result.room.code);
       broadcastGameStart(result.room, result.dealResult);
     } else {
       socket.emit('match-queued', { position: result.position, needed: result.needed, bet: stake });
@@ -374,17 +417,18 @@ io.on('connection', (socket) => {
     socket.emit('match-cancelled');
   });
 
-  socket.on('leave-room', () => handleLeave(socket));
+  socket.on('leave-room', () => handleLeave(socket, true));
 
   socket.on('emote', ({ emoteId } = {}) => {
     const room = getRoomBySocket(socket.id);
-    if (!room) return;
+    const seat = seatOf(room, socket.id);
+    if (!seat) return;
     for (const p of humans(room)) {
-      if (p.id !== socket.id) io.to(p.id).emit('emote', { from: socket.id, emoteId });
+      if (p.id !== seat.id) io.to(p.socketId).emit('emote', { from: seat.id, emoteId });
     }
   });
 
-  socket.on('disconnect', () => handleLeave(socket));
+  socket.on('disconnect', () => handleLeave(socket, false));
 });
 
 app.get('*', (req, res) => {

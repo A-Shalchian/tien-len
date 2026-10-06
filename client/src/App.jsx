@@ -46,6 +46,7 @@ function GameApp() {
   const [myId, setMyId] = useState(null);
   const [playerOrder, setPlayerOrder] = useState([]);
   const [error, setError] = useState(null);
+  const [rejoinResult, setRejoinResult] = useState(null);
   const [urlRoomCode] = useState(() => getRoomCodeFromURL());
 
   const resetToLobby = useCallback(() => {
@@ -130,6 +131,24 @@ function GameApp() {
     if (data.bots) setBotFlags(data.bots);
   }, []);
 
+  useEffect(() => {
+    const askToRejoin = () => socket.emit('rejoin');
+    const onRejoined = ({ roomCode: code, start, state, handOver }) => {
+      setRoomCode(code);
+      if (getRoomCodeFromURL() !== code) history.replaceState({ roomCode: code }, '', `/room/${code}`);
+      handleGameStart(start);
+      handleGameState(state);
+      setRejoinResult(handOver ? { ...handOver, at: Date.now() } : null);
+    };
+    if (socket.connected) askToRejoin();
+    socket.on('connect', askToRejoin);
+    socket.on('rejoined', onRejoined);
+    return () => {
+      socket.off('connect', askToRejoin);
+      socket.off('rejoined', onRejoined);
+    };
+  }, [socket, handleGameStart, handleGameState]);
+
   if (!gameState) {
     return (
       <Lobby
@@ -157,6 +176,7 @@ function GameApp() {
       myId={myId}
       playerOrder={playerOrder}
       roomCode={roomCode}
+      rejoinResult={rejoinResult}
       onGameState={handleGameState}
       onGameStart={handleGameStart}
     />

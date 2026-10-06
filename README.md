@@ -60,7 +60,7 @@ Bigger chops beat smaller ones: 3 pairs, then four of a kind, then 4 pairs, then
 
 You win right away (tới trắng) if you're dealt all four 2s, or a dragon: one of every card from 3 to A.
 
-Online hands are scored with the score tracker points below, and each point is worth the stake. Quick Match uses the chips on your account. Rooms you make yourself use practice chips. If you leave mid-hand, a bot finishes your hand.
+Online hands are scored with the score tracker points below, and each point is worth the stake. Quick Match uses the chips on your account. Rooms you make yourself use practice chips. If you leave mid-hand, a bot finishes your hand. If you refresh or lose connection, you have a minute to jump back in.
 
 ## Score tracker
 

@@ -1,4 +1,7 @@
 export default {
+  'Something went wrong on this page.': 'Trang này vừa gặp lỗi.',
+  'Reload to keep playing. Your chips and games are safe.': 'Tải lại để chơi tiếp. Chip và các ván của bạn vẫn an toàn.',
+  Reload: 'Tải lại',
   'Change language': 'Đổi ngôn ngữ',
   Home: 'Trang chủ',
   'Score tracker': 'Ghi điểm',

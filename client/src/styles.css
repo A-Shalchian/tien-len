@@ -277,6 +277,39 @@ body {
   position: relative;
 }
 
+.crash {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 16px;
+  background: #2a0907;
+  color: #f1e6d0;
+  text-align: center;
+}
+
+.crash h1 {
+  font-size: 1.5rem;
+}
+
+.crash p {
+  color: rgba(241, 230, 208, 0.74);
+}
+
+.crash-btn {
+  margin-top: 8px;
+  padding: 11px 22px;
+  border: 0;
+  border-radius: 12px;
+  background: #d8a44a;
+  color: #1d1413;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .nav {
   --nav-bg: #141414;
   --nav-line: #2a2a2a;

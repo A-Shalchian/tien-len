@@ -9,6 +9,7 @@ import Terms from './pages/Terms.jsx';
 import Profile from './pages/Profile.jsx';
 import Admin from './pages/Admin.jsx';
 import NavBar from './components/NavBar.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 function getRoomCodeFromURL() {
   const match = window.location.pathname.match(/^\/room\/([A-Z0-9]{4})$/i);
@@ -35,7 +36,9 @@ export default function App() {
     <div className="app-shell">
       <NavBar path={path} theme={DARK_PAGES.includes(path) || path.startsWith('/room/') ? 'dark' : 'lacquer'} />
       <main className="app-main">
-        <Page path={path} />
+        <ErrorBoundary>
+          <Page path={path} />
+        </ErrorBoundary>
       </main>
     </div>
   );

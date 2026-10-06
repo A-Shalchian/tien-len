@@ -8,7 +8,7 @@ import {
   getNicknames, getBotFlags, getAway, isAutoPlayed,
   leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, isUserBusy, REJOIN_GRACE_MS,
+  listOpenRooms, isUserBusy, closeRoom, liveSnapshot, REJOIN_GRACE_MS,
 } from './rooms.js';
 import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
@@ -16,6 +16,7 @@ import { minBalance } from './game/payout.js';
 import { toNodeHandler } from 'better-auth/node';
 import scoresRouter from './scores.js';
 import profileRouter, { loadProfile } from './profile.js';
+import { createAdminRouter } from './admin.js';
 import { auth, getUserFromHeaders } from './auth.js';
 import { getBalance, recordOnlineHand } from './chips.js';
 import { renamePlayers } from '../client/src/utils/scoring.js';
@@ -31,8 +32,6 @@ const app = express();
 app.use(cors());
 app.use(express.static(clientDist));
 app.all('/api/auth/*', toNodeHandler(auth));
-app.use('/api', profileRouter);
-app.use('/api', scoresRouter);
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -41,6 +40,26 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST'],
   },
 });
+
+function adminCloseRoom(code) {
+  const room = closeRoom(code);
+  if (!room) return false;
+  clearTimeout(room.botTimer);
+  for (const p of room.players) {
+    if (!p.socketId) continue;
+    io.to(p.socketId).emit('room-closed', { reason: 'An admin closed this room.' });
+    io.sockets.sockets.get(p.socketId)?.leave(room.code);
+  }
+  broadcastRoomList();
+  return true;
+}
+
+app.use('/api/admin', createAdminRouter({
+  live: () => ({ ...liveSnapshot(), connections: io.engine.clientsCount }),
+  closeRoom: adminCloseRoom,
+}));
+app.use('/api', profileRouter);
+app.use('/api', scoresRouter);
 
 function saveOnlineHand(room, result) {
   const seats = room.game.players;

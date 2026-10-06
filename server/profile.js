@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool, transaction } from './db.js';
-import { getUser } from './auth.js';
+import { getUser, isAdmin } from './auth.js';
 import { getBalance, applyDailyTopUp } from './chips.js';
 import { gameChips } from './game/payout.js';
 import {
@@ -214,6 +214,7 @@ router.get('/me', handle(async (req, res) => {
     profile,
     needsConsent,
     balance: await getBalance(user.id),
+    isAdmin: isAdmin(user),
   });
 }));
 

@@ -39,6 +39,11 @@ export const auth = betterAuth({
   },
 });
 
+export function isAdmin(user) {
+  const emails = (env('ADMIN_EMAILS') || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  return Boolean(user?.email && user.emailVerified && emails.includes(user.email.toLowerCase()));
+}
+
 export async function getUser(req) {
   return getUserFromHeaders(req.headers);
 }

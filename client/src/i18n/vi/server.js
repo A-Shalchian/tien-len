@@ -17,6 +17,10 @@ export default {
   'Could not load your chips. Try again.': 'Không tải được số chip của bạn. Thử lại nhé.',
   'You are already in a Quick Match in another tab.': 'Bạn đang chơi Ghép trận nhanh ở tab khác rồi.',
   'Not enough players to continue': 'Không đủ người chơi để tiếp tục',
+  'An admin closed this room.': 'Quản trị viên đã đóng phòng này.',
+  'That room is already closed.': 'Phòng này đã đóng rồi.',
+  'That user does not exist.': 'Người dùng này không tồn tại.',
+  'That would put the balance below zero.': 'Số chip sẽ bị âm.',
 
   'Room not found': 'Không tìm thấy phòng',
   'Game already in progress': 'Phòng này đang chơi rồi',
@@ -56,6 +60,7 @@ export default {
 };
 
 export const patterns = [
+  [/^Enter a whole number of chips between (-?\d+) and (\d+)\.$/, 'Nhập số chip nguyên từ $1 đến $2.'],
   [/^You need at least (\d+) chips for this stake\. You have (-?\d+)\.$/, 'Mức cược này cần ít nhất $1 chip. Bạn đang có $2.'],
   [/^(.+) won instantly$/, '$1 tới trắng'],
   [/^(.+) won with the 3♠ as the last card$/, '$1 về bằng 3♠'],

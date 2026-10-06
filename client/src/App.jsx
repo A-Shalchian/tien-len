@@ -7,6 +7,7 @@ import Landing from './pages/Landing.jsx';
 import Privacy from './pages/Privacy.jsx';
 import Terms from './pages/Terms.jsx';
 import Profile from './pages/Profile.jsx';
+import Admin from './pages/Admin.jsx';
 import NavBar from './components/NavBar.jsx';
 
 function getRoomCodeFromURL() {
@@ -20,6 +21,7 @@ function Page({ path }) {
   if (path === '/terms') return <Terms />;
   if (path.startsWith('/scores')) return <ScoreTracker />;
   if (path === '/profile') return <Profile />;
+  if (path === '/admin') return <Admin />;
   const profileMatch = path.match(/^\/u\/([A-Za-z0-9_-]+)$/);
   if (profileMatch) return <Profile userId={profileMatch[1]} />;
   return <GameApp />;
@@ -132,6 +134,16 @@ function GameApp() {
     if (data.nicknames) setNicknames(data.nicknames);
     if (data.bots) setBotFlags(data.bots);
   }, []);
+
+  useEffect(() => {
+    const onClosed = ({ reason }) => {
+      resetToLobby();
+      setError(reason);
+      history.pushState({}, '', '/play');
+    };
+    socket.on('room-closed', onClosed);
+    return () => socket.off('room-closed', onClosed);
+  }, [socket, resetToLobby]);
 
   useEffect(() => {
     const askToRejoin = () => socket.emit('rejoin');

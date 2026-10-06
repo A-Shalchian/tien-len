@@ -1,0 +1,288 @@
+.ad .st-table th,
+.ad .st-table td {
+  text-align: left;
+  vertical-align: top;
+}
+
+.ad .st-table .ad-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-refresh {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ad-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.ad-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+}
+
+.ad-tile dt {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--st-ink-3);
+}
+
+.ad-tile dd {
+  font-family: var(--st-display);
+  font-weight: 800;
+  font-size: 2rem;
+  line-height: 1.15;
+  color: var(--st-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-rooms {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.ad-room {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ad-room-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ad-code {
+  font-family: var(--st-display);
+  font-weight: 800;
+  font-size: 1.4rem;
+  letter-spacing: 0.06em;
+  margin-right: 4px;
+}
+
+.ad-seats {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.ad-seats li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--st-stock-line);
+}
+
+.ad-seat-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ad-tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--st-stock-2);
+  color: var(--st-ink-2);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.ad-tag-away {
+  background: rgba(179, 38, 30, 0.12);
+  color: var(--st-neg);
+}
+
+.ad-room .st-btn {
+  align-self: flex-start;
+}
+
+.ad-queue ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ad-queue li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ad-charts,
+.ad-split {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 900px) {
+  .ad-charts,
+  .ad-split {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.ad-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+
+.ad-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.ad-chart svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ad-bar {
+  fill: var(--st-lacquer);
+}
+
+.ad-bar-on {
+  fill: var(--st-gold-ink);
+}
+
+.ad-axis {
+  stroke: var(--st-stock-line);
+  stroke-width: 1;
+}
+
+.ad-tick {
+  fill: var(--st-ink-3);
+  font: 500 12px var(--st-body);
+}
+
+.ad-chips,
+.ad-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ad-top {
+  padding-left: 22px;
+}
+
+.ad-top li {
+  padding: 6px 0;
+  border-top: 1px solid var(--st-stock-line);
+}
+
+.ad-top li::marker {
+  color: var(--st-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-top .ad-num {
+  float: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.ad-fact dt {
+  font-size: 0.82rem;
+  color: var(--st-ink-3);
+}
+
+.ad-fact dd {
+  font-family: var(--st-display);
+  font-weight: 800;
+  font-size: 1.6rem;
+  color: var(--st-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-users-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ad-search {
+  max-width: 320px;
+}
+
+.ad-users {
+  overflow-x: auto;
+}
+
+.ad-users .st-table {
+  min-width: 760px;
+}
+
+.ad-email {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--st-ink-3);
+  overflow-wrap: anywhere;
+}
+
+.ad-when {
+  white-space: nowrap;
+  color: var(--st-ink-2);
+  font-size: 0.88rem;
+}
+
+.ad-adjust {
+  display: flex;
+  gap: 6px;
+}
+
+.ad-adjust .st-input {
+  width: 96px;
+  padding: 7px 10px;
+  font-size: 0.92rem;
+}
+
+.ad-adjust .st-btn {
+  padding: 7px 12px;
+}
+
+.ad-msg-ok {
+  display: block;
+  margin-top: 4px;
+  color: var(--st-pos);
+}
+
+.ad-msg-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--st-neg);
+}

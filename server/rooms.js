@@ -60,6 +60,7 @@ function createRoom(conn, stake = 10, maxPlayers = 4, fillWithBots = false, isPu
     ranked: false,
     readyForNext: new Set(),
     lastResult: null,
+    createdAt: Date.now(),
   });
   socketToRoom.set(conn.socketId, code);
   return code;
@@ -272,6 +273,7 @@ function joinMatchmaking(conn, stake, maxPlayers = 4, balance = 0) {
     startingBalances: Object.fromEntries(players.map((p, i) => [p.id, entries[i].balance])),
     readyForNext: new Set(),
     lastResult: null,
+    createdAt: Date.now(),
   };
   rooms.set(code, room);
   for (const p of players) socketToRoom.set(p.socketId, code);
@@ -311,6 +313,42 @@ function listOpenRooms() {
   return list;
 }
 
+function closeRoom(code) {
+  const room = rooms.get(code);
+  if (!room) return null;
+  deleteRoom(room);
+  return room;
+}
+
+function liveSnapshot() {
+  const roomList = [...rooms.values()].map((room) => {
+    const game = room.game;
+    const live = game && !game.handOver;
+    return {
+      code: room.code,
+      ranked: room.ranked,
+      isPublic: room.isPublic,
+      stake: room.stake,
+      maxPlayers: room.maxPlayers,
+      status: !game ? 'waiting' : live ? 'playing' : 'between',
+      createdAt: room.createdAt,
+      players: room.players.map((p) => ({
+        nickname: p.nickname,
+        userId: p.userId || null,
+        isBot: p.isBot,
+        away: p.away,
+        cards: live ? game.hands[p.id]?.length ?? null : null,
+        balance: game ? game.balances[p.id] ?? null : null,
+      })),
+    };
+  });
+  const queues = [...matchQueues].map(([key, queue]) => {
+    const [stake, maxPlayers] = key.split('-').map(Number);
+    return { stake, maxPlayers, players: queue.map((p) => ({ nickname: p.nickname, userId: p.userId || null })) };
+  });
+  return { rooms: roomList, queues };
+}
+
 function isUserBusy(userId) {
   for (const queue of matchQueues.values()) {
     if (queue.some((p) => p.userId === userId)) return true;
@@ -326,5 +364,5 @@ export {
   getRoomBySocket, seatOf, getNicknames, getBotFlags, getAway, isAutoPlayed,
   leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, isUserBusy,
+  listOpenRooms, isUserBusy, closeRoom, liveSnapshot,
 };

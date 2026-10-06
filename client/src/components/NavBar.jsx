@@ -76,6 +76,7 @@ function UserMenu({ me }) {
           {MENU.map((item) => (
             <a key={item.href} role="menuitem" className="nav-menu-item" href={item.href}>{t(item.label)}</a>
           ))}
+          {me.isAdmin && <a role="menuitem" className="nav-menu-item" href="/admin">{t('Admin')}</a>}
           <button type="button" role="menuitem" className="nav-menu-item nav-menu-signout" onClick={signOut}>
             {t('Sign out')}
           </button>

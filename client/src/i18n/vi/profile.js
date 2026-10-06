@@ -10,7 +10,10 @@ export default {
 
   'Joined {date}': 'Tham gia {date}',
   'Your profile is private': 'Hồ sơ của bạn đang riêng tư',
-  'Public view': 'Xem công khai',
+  'See what others see': 'Xem như người khác thấy',
+  'This is what other players see.': 'Đây là những gì người chơi khác thấy.',
+  "Your profile is private, so other players can't open this page.": 'Hồ sơ của bạn đang riêng tư, nên người chơi khác không mở được trang này.',
+  'Back to your profile': 'Quay lại hồ sơ của bạn',
   'Online hands': 'Ván trực tuyến',
   'Online wins': 'Thắng trực tuyến',
   'Online chips': 'Chip trực tuyến',

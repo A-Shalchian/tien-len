@@ -46,7 +46,7 @@ export default function Profile({ userId }) {
       </section>
     );
   } else if (me.user && me.needsConsent) body = <ConsentGate onAccepted={loadMe} />;
-  else body = <ProfileView id={userId || me.user.id} me={me} onChanged={loadMe} />;
+  else body = <ProfileView id={userId || me.user.id} me={me} onChanged={loadMe} preview={Boolean(userId)} />;
 
   return (
     <div className="st">
@@ -57,7 +57,7 @@ export default function Profile({ userId }) {
   );
 }
 
-function ProfileView({ id, me, onChanged }) {
+function ProfileView({ id, me, onChanged, preview }) {
   const { t, locale } = useLang();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -73,6 +73,7 @@ function ProfileView({ id, me, onChanged }) {
 
   if (error) return <p className="st-error">{t(error)}</p>;
   if (!data) return <p className="st-muted">{t('Loading profile...')}</p>;
+  if (data.isMe && preview) return <PublicPreview data={data} me={me} />;
 
   const tabs = ['sessions', 'online', 'chips', 'settings'];
   const tabLabels = { sessions: 'Sessions', online: 'Online', chips: 'Chip history', settings: 'Settings' };
@@ -117,6 +118,26 @@ function ProfileView({ id, me, onChanged }) {
   );
 }
 
+function PublicPreview({ data, me }) {
+  const { t } = useLang();
+  const { hideFromLeaderboard, privateProfile } = me.profile;
+  const shown = hideFromLeaderboard
+    ? { ...data, isMe: false, balance: null, online: { ...data.online, chips: null } }
+    : { ...data, isMe: false };
+  return (
+    <div className="st-wide pf-layout pf-layout-solo">
+      <p className="st-lead pf-preview">
+        {privateProfile
+          ? t("Your profile is private, so other players can't open this page.")
+          : t('This is what other players see.')}
+        {' '}
+        <a className="st-link" href="/profile">{t('Back to your profile')}</a>
+      </p>
+      {!privateProfile && <PlayerCard data={shown} me={me} />}
+    </div>
+  );
+}
+
 function PlayerCard({ data, me }) {
   const { t, locale } = useLang();
   const mark = initials(data.name);
@@ -130,7 +151,7 @@ function PlayerCard({ data, me }) {
         {t('Joined {date}', { date: formatDateTime(locale, data.joinedAt) })}
         {data.isMe && me.profile.privateProfile && <><br />{t('Your profile is private')}</>}
         {data.isMe && !me.profile.privateProfile && (
-          <><br /><a className="st-link" href={`/u/${data.id}`}>{t('Public view')}</a></>
+          <><br /><a className="st-link" href={`/u/${data.id}`}>{t('See what others see')}</a></>
         )}
       </p>
       {data.balance !== null && (

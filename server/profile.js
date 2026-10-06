@@ -313,7 +313,7 @@ router.get('/users/:id', handle(async (req, res) => {
     sessionHistory(profile.id),
     pool.query(
       `select amount, reason, created_at from chip_ledger
-       where user_id = $1 and session_id is null order by created_at desc limit 300`,
+       where user_id = $1 order by created_at desc limit 300`,
       [profile.id],
     ),
   ]);
@@ -328,7 +328,7 @@ router.get('/leaderboard', handle(async (req, res) => {
             coalesce(sum(l.amount), 0)::int as balance
      from "user" u
      left join profiles pr on pr.user_id = u.id
-     left join chip_ledger l on l.user_id = u.id and l.session_id is null
+     left join chip_ledger l on l.user_id = u.id
      where pr.terms_accepted_at is not null and not pr.hide_from_leaderboard
      group by u.id, pr.display_name, pr.hide_avatar, pr.private_profile
      order by balance desc, name

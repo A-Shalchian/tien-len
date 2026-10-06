@@ -52,7 +52,7 @@ create table if not exists chip_ledger (
 
 alter table chip_ledger drop constraint if exists chip_ledger_reason_check;
 alter table chip_ledger add constraint chip_ledger_reason_check
-  check (reason in ('signup', 'daily', 'game', 'undo', 'admin', 'online'));
+  check (reason in ('signup', 'daily', 'admin', 'online'));
 
 create index if not exists chip_ledger_user_idx on chip_ledger (user_id);
 create unique index if not exists chip_ledger_daily_once on chip_ledger (user_id, day) where reason = 'daily';

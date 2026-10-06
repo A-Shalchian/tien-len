@@ -3,7 +3,7 @@
 ## Now
 
 - [x] One `server/schema.sql` instead of a migrations folder. The server runs it on every start and it only adds what's missing.
-- [ ] Database cleanup: old session chip rows, expired logins, the old migrations table
+- [x] Database cleanup: dropped the old migrations table, backup saved outside the repo. There were no session chip rows or expired logins to delete.
 - [ ] Online rules: play out every place, bigger chops, last winner starts the next hand
 - [ ] Online chips scored like the score tracker, each point worth the stake
 - [ ] Save online match results and show them on profiles

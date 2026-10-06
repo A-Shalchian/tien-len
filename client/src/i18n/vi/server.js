@@ -21,6 +21,7 @@ export default {
   'An admin closed this room.': 'Quản trị viên đã đóng phòng này.',
   'The host closed this room.': 'Chủ phòng đã đóng phòng này.',
   'You opened a new room, so you left this game.': 'Bạn đã mở phòng mới nên đã rời ván này.',
+  'You opened a new room, so your old one closed.': 'Bạn đã mở phòng mới nên phòng cũ đã đóng.',
   'Too many rooms are open right now. Try again in a minute.': 'Hiện có quá nhiều phòng đang mở. Thử lại sau một phút nhé.',
   'That room is already closed.': 'Phòng này đã đóng rồi.',
   'That user does not exist.': 'Người dùng này không tồn tại.',

@@ -267,11 +267,12 @@ function handleLeave(socket, left) {
 
 function releaseHostedRooms(conn) {
   for (const room of roomsHostedBy(conn)) {
+    const host = room.players.find((p) => p.id === room.host);
     if (!room.game) {
-      closeRoomFor(room.code, 'The host closed this room.');
+      closeRoomFor(room.code, 'The host closed this room.', host.socketId);
+      io.to(host.socketId).emit('room-closed', { reason: 'You opened a new room, so your old one closed.' });
       continue;
     }
-    const host = room.players.find((p) => p.id === room.host);
     const hostSocket = io.sockets.sockets.get(host.socketId);
     if (!hostSocket) continue;
     handleLeave(hostSocket, true);

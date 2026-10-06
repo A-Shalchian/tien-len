@@ -243,6 +243,45 @@ body {
   color: #777;
 }
 
+.lang-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #444;
+  border-radius: 999px;
+  background: transparent;
+  font: 600 0.72rem/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.lang-toggle span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #999;
+}
+
+.lang-toggle .lang-on {
+  background: #e8e8e8;
+  color: #111;
+}
+
+.lobby-lang {
+  align-self: flex-end;
+}
+
+.game-lang {
+  position: absolute;
+  top: 46px;
+  right: 8px;
+  z-index: 5;
+  background: #2a2a2a;
+  font-size: 0.62rem;
+}
+
+.game-lang span {
+  padding: 3px 6px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

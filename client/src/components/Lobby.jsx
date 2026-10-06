@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getMe, signIn } from '../utils/api.js';
 import ConsentGate from '../pages/ConsentGate.jsx';
 import MoneyDisplay from './MoneyDisplay.jsx';
+import LanguageToggle from './LanguageToggle.jsx';
+import { useLang } from '../i18n/index.jsx';
 
 const STAKE_OPTIONS = [5, 10, 25, 50, 100, 250];
 const STAKES_TO_PLAY = 10;
@@ -15,22 +17,24 @@ const CHIP_RULES = [
 ];
 
 function ChipInfo() {
+  const { t } = useLang();
   return (
     <>
       <dl className="chip-rules">
         {CHIP_RULES.map(([label, text]) => (
           <div key={label} className="chip-rule">
-            <dt>{label}</dt>
-            <dd>{text}</dd>
+            <dt>{t(label)}</dt>
+            <dd>{t(text)}</dd>
           </div>
         ))}
       </dl>
-      <p className="chip-rules-note">Rooms use practice chips. Nothing is saved.</p>
+      <p className="chip-rules-note">{t('Rooms use practice chips. Nothing is saved.')}</p>
     </>
   );
 }
 
 function ChipInfoModal({ onClose }) {
+  const { t } = useLang();
   const closeRef = useRef(null);
 
   useEffect(() => {
@@ -52,8 +56,8 @@ function ChipInfoModal({ onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <h2 id="chip-info-title">How chips work</h2>
-          <button ref={closeRef} type="button" className="modal-close" onClick={onClose} aria-label="Close">
+          <h2 id="chip-info-title">{t('How chips work')}</h2>
+          <button ref={closeRef} type="button" className="modal-close" onClick={onClose} aria-label={t('Close')}>
             ×
           </button>
         </div>
@@ -64,6 +68,7 @@ function ChipInfoModal({ onClose }) {
 }
 
 export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, onRoomJoined, onLeaveRoom, onGameStart, onGameState, error, setError }) {
+  const { t } = useLang();
   const [me, setMe] = useState(undefined);
   const [nickname, setNickname] = useState('');
   const [joinCode, setJoinCode] = useState(urlRoomCode || '');
@@ -216,11 +221,13 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
   };
 
   const balance = me?.balance ?? 0;
+  const [nameNoteStart, nameNoteEnd] = t('Signed in. Change your name on your {link}.').split('{link}');
 
   return (
     <div className="lobby">
+      <LanguageToggle className="lobby-lang" />
       <h1 className="lobby-title">Tiến Lên</h1>
-      <p className="lobby-subtitle">Vietnamese Card Game</p>
+      <p className="lobby-subtitle">{t('Vietnamese Card Game')}</p>
 
       <div className={`lobby-form ${browsing ? 'lobby-form-wide' : ''}`}>
         <div className="lobby-name">
@@ -232,16 +239,16 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                 className="lobby-input lobby-input-locked"
                 disabled
                 readOnly
-                aria-label="Your name"
+                aria-label={t('Your name')}
               />
               <p className="name-note">
-                Signed in. Change your name on your <a href="/profile">profile</a>.
+                {nameNoteStart}<a href="/profile">{t('profile')}</a>{nameNoteEnd}
               </p>
             </>
           ) : (
             <input
               type="text"
-              placeholder="Your nickname"
+              placeholder={t('Your nickname')}
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               maxLength={12}
@@ -253,17 +260,17 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
 
         {searching ? (
           <div className="lobby-section">
-            <h2>Finding Match</h2>
+            <h2>{t('Finding Match')}</h2>
             <div className="match-search-info">
               <div className="match-bet-display">
                 <span className="money-chip" />
                 <span className="match-bet-amount">{matchBet}</span>
-                <span className="chip-label">per point</span>
+                <span className="chip-label">{t('per point')}</span>
               </div>
               <p className="waiting-text">
                 {queueInfo
-                  ? `${queueInfo.position} / ${queueInfo.needed} players`
-                  : 'Searching...'}
+                  ? t('{position} / {needed} players', { position: queueInfo.position, needed: queueInfo.needed })
+                  : t('Searching...')}
               </p>
               <div className="match-dots">
                 <span className="dot" />
@@ -272,7 +279,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
               </div>
             </div>
             <button onClick={handleCancelMatch} className="btn btn-secondary" style={{ marginTop: 12 }}>
-              Cancel
+              {t('Cancel')}
             </button>
           </div>
         ) : !roomCode ? (
@@ -280,12 +287,12 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
             <div className="lobby-col">
               <div className="lobby-section">
                 <div className="section-head">
-                  <h2>Quick Match</h2>
+                  <h2>{t('Quick Match')}</h2>
                   <button
                     type="button"
                     className={`info-btn ${showChipInfo ? 'info-open' : ''}`}
                     onClick={() => setShowChipInfo(true)}
-                    aria-label="How chips work"
+                    aria-label={t('How chips work')}
                     aria-haspopup="dialog"
                   >
                     i
@@ -293,12 +300,12 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                 </div>
                 {showChipInfo && <ChipInfoModal onClose={closeChipInfo} />}
                 {me === undefined ? (
-                  <p className="section-desc">Loading your account...</p>
+                  <p className="section-desc">{t('Loading your account...')}</p>
                 ) : !signedIn ? (
                   <>
-                    <p className="section-desc">Quick Match bets the chips saved to your account. Sign in to play.</p>
+                    <p className="section-desc">{t('Quick Match bets the chips saved to your account. Sign in to play.')}</p>
                     <button onClick={() => signIn('/play')} className="btn btn-primary">
-                      Sign in with Google
+                      {t('Sign in with Google')}
                     </button>
                   </>
                 ) : me.needsConsent ? (
@@ -306,9 +313,9 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                 ) : (
                   <>
                     <div className="chip-balance">
-                      Your chips <MoneyDisplay amount={balance} />
+                      {t('Your chips')} <MoneyDisplay amount={balance} />
                     </div>
-                    <p className="section-desc">Chips per point</p>
+                    <p className="section-desc">{t('Chips per point')}</p>
                     <div className="bet-grid">
                       {STAKE_OPTIONS.map((amount) => (
                         <button
@@ -323,7 +330,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                       ))}
                     </div>
                     <div className="ante-row">
-                      <label>Players:</label>
+                      <label>{t('Players')}:</label>
                       <select
                         value={matchPlayers}
                         onChange={(e) => setMatchPlayers(parseInt(e.target.value))}
@@ -335,11 +342,11 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                       </select>
                     </div>
                     <button onClick={handleFindMatch} disabled={matchBet * STAKES_TO_PLAY > balance} className="btn btn-primary">
-                      Find Match
+                      {t('Find Match')}
                     </button>
                     {matchBet * STAKES_TO_PLAY > balance && (
                       <p className="section-desc section-desc-after">
-                        You need {matchBet * STAKES_TO_PLAY} chips for this stake. Pick a smaller one.
+                        {t('You need {chips} chips for this stake. Pick a smaller one.', { chips: matchBet * STAKES_TO_PLAY })}
                       </p>
                     )}
                   </>
@@ -347,22 +354,22 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
               </div>
             </div>
 
-            <div className="lobby-divider">or</div>
+            <div className="lobby-divider">{t('or')}</div>
 
             <div className="lobby-col">
               <div className="lobby-section">
-                <h2>Open Rooms</h2>
+                <h2>{t('Open Rooms')}</h2>
                 {openRooms.length === 0 ? (
-                  <p className="section-desc">No open rooms right now. Create a public room and it shows up here.</p>
+                  <p className="section-desc">{t('No open rooms right now. Create a public room and it shows up here.')}</p>
                 ) : (
                   <>
                     <ul className="room-list">
                       {openRooms.map((r) => (
                         <li key={r.code} className="room-row">
                           <div className="room-row-info">
-                            <span className="room-row-host">{r.host}'s room</span>
+                            <span className="room-row-host">{t("{host}'s room", { host: r.host })}</span>
                             <span className="room-row-meta">
-                              {r.stake} per point · {r.players}/{r.maxPlayers} players{r.fillWithBots ? ' · bots fill seats' : ''}
+                              {t('{stake} per point', { stake: r.stake })} · {t('{players}/{max} players', { players: r.players, max: r.maxPlayers })}{r.fillWithBots ? ` · ${t('bots fill seats')}` : ''}
                             </span>
                           </div>
                           <button
@@ -370,25 +377,25 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                             disabled={!playerName}
                             className="btn btn-secondary"
                           >
-                            Join
+                            {t('Join')}
                           </button>
                         </li>
                       ))}
                     </ul>
-                    {!playerName && <p className="section-desc">Enter a nickname to join a room.</p>}
+                    {!playerName && <p className="section-desc">{t('Enter a nickname to join a room.')}</p>}
                   </>
                 )}
               </div>
             </div>
 
-            <div className="lobby-divider">or</div>
+            <div className="lobby-divider">{t('or')}</div>
 
             <div className="lobby-col">
               <div className="lobby-section">
-                <h2>Create Room</h2>
-                <p className="section-desc">Rooms use practice chips. Nothing is saved to your account.</p>
+                <h2>{t('Create Room')}</h2>
+                <p className="section-desc">{t('Rooms use practice chips. Nothing is saved to your account.')}</p>
                 <div className="ante-row">
-                  <label>Per point:</label>
+                  <label>{t('Per point')}:</label>
                   <input
                     type="number"
                     value={stake}
@@ -397,10 +404,10 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                     max={100}
                     className="lobby-input ante-input"
                   />
-                  <span className="chip-label">chips</span>
+                  <span className="chip-label">{t('chips')}</span>
                 </div>
                 <div className="ante-row">
-                  <label>Players:</label>
+                  <label>{t('Players')}:</label>
                   <select
                     value={maxPlayers}
                     onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
@@ -418,7 +425,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                       checked={fillWithBots}
                       onChange={(e) => setFillWithBots(e.target.checked)}
                     />
-                    Fill empty seats with bots
+                    {t('Fill empty seats with bots')}
                   </label>
                 </div>
                 <div className="ante-row">
@@ -428,35 +435,35 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                       checked={isPublic}
                       onChange={(e) => setIsPublic(e.target.checked)}
                     />
-                    List in open rooms so anyone can join
+                    {t('List in open rooms so anyone can join')}
                   </label>
                 </div>
                 <button onClick={handleCreate} disabled={!playerName} className="btn btn-secondary">
-                  Create Room
+                  {t('Create Room')}
                 </button>
               </div>
 
-              <div className="lobby-divider">or</div>
+              <div className="lobby-divider">{t('or')}</div>
 
               <div className="lobby-section">
-                <h2>Join With Code</h2>
+                <h2>{t('Join With Code')}</h2>
                 <input
                   type="text"
-                  placeholder="Room code"
+                  placeholder={t('Room code')}
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   maxLength={4}
                   className="lobby-input code-input"
                 />
                 <button onClick={() => joinRoom(joinCode.trim())} disabled={!playerName || !joinCode.trim()} className="btn btn-secondary">
-                  Join
+                  {t('Join')}
                 </button>
               </div>
             </div>
           </div>
         ) : (
           <div className="lobby-section waiting-section">
-            <h2>Room Code</h2>
+            <h2>{t('Room Code')}</h2>
             <div className="room-code">{roomCode}</div>
             {lobbyPlayers.length > 0 && (
               <div className="lobby-players">
@@ -466,20 +473,20 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
               </div>
             )}
             <p className="waiting-text">
-              {waiting ? 'Waiting for players to join...' : 'Share this code with your friends'}
+              {waiting ? t('Waiting for players to join...') : t('Share this code with your friends')}
             </p>
             {waiting && (
               <button onClick={handleStartGame} className="btn btn-secondary" style={{ marginTop: 12 }}>
-                Start with Bots
+                {t('Start with Bots')}
               </button>
             )}
             <button onClick={onLeaveRoom} className="btn btn-secondary" style={{ marginTop: 8 }}>
-              Back
+              {t('Back')}
             </button>
           </div>
         )}
 
-        {error && <div className="error-msg">{error}</div>}
+        {error && <div className="error-msg">{t(error)}</div>}
       </div>
     </div>
   );

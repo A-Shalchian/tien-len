@@ -10,7 +10,7 @@
 - [x] Rejoin after a refresh or dropped connection. A bot plays your seat for up to 60 seconds while you're gone. Pressing Back still leaves for good.
 - [x] Smarter bots: they plan their hand, hold 2s and chops, always chop 2s, and push harder when someone is close to going out. Against the old bots over 3,000 hands they win 27% vs 23% (4 players), 36% vs 30% (3) and 54% vs 46% (2).
 - [x] Score tracker works offline: the page is cached, games recorded with no signal stay on the phone and sync later. Sessions have a points-over-time chart and a head-to-head table.
-- [ ] Vietnamese language toggle for the whole site
+- [x] EN/VI toggle on every page, saved per browser. Phones set to Vietnamese start in Vietnamese. Translations live in `client/src/i18n/vi/`.
 
 ## Later
 

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_PLACE_POINTS, DEFAULT_PENALTIES } from '../utils/scoring.js';
 import { api, getMe, signIn } from '../utils/api.js';
+import { useLang } from '../i18n/index.jsx';
+import LanguageToggle from '../components/LanguageToggle.jsx';
 import './landing.css';
 
 const SEATS = [
@@ -236,6 +238,7 @@ function MiniHand({ cards }) {
 }
 
 const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+const START_CHIPS = 1000;
 
 const PLAYS = [
   { name: 'Single', cards: [['K', '♥']] },
@@ -246,54 +249,55 @@ const PLAYS = [
 ];
 
 function HowToPlay() {
+  const { t } = useLang();
   return (
     <section className="lp-section" id="how-to-play">
-      <h2 className="lp-h2">How to play</h2>
+      <h2 className="lp-h2">{t('How to play')}</h2>
       <p className="lp-lead">
-        Four players, thirteen cards each. Get rid of all your cards before everyone else.
+        {t('Four players, thirteen cards each. Get rid of all your cards before everyone else.')}
       </p>
 
-      <div className="lp-ladder" role="img" aria-label="Card ranks from lowest to highest: 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A, 2">
+      <div className="lp-ladder" role="img" aria-label={t('Card ranks from lowest to highest: {list}', { list: RANKS.join(', ') })}>
         {RANKS.map((rank) => (
           <PlayingCard key={rank} rank={rank} suit={rank === '2' ? '♥' : '♠'} className="lp-mini" />
         ))}
       </div>
       <div className="lp-ladder-ends">
-        <span>3 is the lowest</span>
-        <span>2 is the highest</span>
+        <span>{t('3 is the lowest')}</span>
+        <span>{t('2 is the highest')}</span>
       </div>
       <p className="lp-text">
-        When ranks tie, the suit decides: spades, then clubs, then diamonds, then hearts.
+        {t('When ranks tie, the suit decides: spades, then clubs, then diamonds, then hearts.')}
       </p>
 
-      <h3 className="lp-h3">What you can play</h3>
+      <h3 className="lp-h3">{t('What you can play')}</h3>
       <ul className="lp-plays">
         {PLAYS.map((play) => (
           <li key={play.name}>
             <MiniHand cards={play.cards} />
-            <span>{play.name}</span>
+            <span>{t(play.name)}</span>
           </li>
         ))}
       </ul>
       <p className="lp-text">
-        Beat the cards on the table with the same kind of play and the same number of cards, only higher. If you
-        can't or won't, pass. Once you pass you sit out until someone clears the table.
+        {t("Beat the cards on the table with the same kind of play and the same number of cards, only higher. If you can't or won't, pass. Once you pass you sit out until someone clears the table.")}
       </p>
 
-      <h3 className="lp-h3">Chops</h3>
+      <h3 className="lp-h3">{t('Chops')}</h3>
       <p className="lp-text">
-        A 2 can be chopped. Four of a kind or three pairs in a row beats a single 2. Four pairs in a row beats a pair of 2s.
+        {t('A 2 can be chopped. Four of a kind or three pairs in a row beats a single 2. Four pairs in a row beats a pair of 2s.')}
       </p>
 
-      <h3 className="lp-h3">Who starts</h3>
+      <h3 className="lp-h3">{t('Who starts')}</h3>
       <p className="lp-text">
-        Whoever holds the 3♠ leads the first game. After that, the last winner leads.
+        {t('Whoever holds the 3♠ leads the first game. After that, the last winner leads.')}
       </p>
     </section>
   );
 }
 
 function HouseRules() {
+  const { t } = useLang();
   const place = DEFAULT_PLACE_POINTS[3];
   const p = DEFAULT_PENALTIES;
   const rows = [
@@ -308,24 +312,25 @@ function HouseRules() {
   ];
   return (
     <section className="lp-section" id="house-rules">
-      <h2 className="lp-h2">Our house rules</h2>
+      <h2 className="lp-h2">{t('Our house rules')}</h2>
       <p className="lp-lead">
-        How we score games at the table. ± means one player gains what the other loses.
+        {t('How we score games at the table. ± means one player gains what the other loses.')}
       </p>
       <dl className="lp-ledger">
         {rows.map(([label, value]) => (
           <div key={label} className="lp-ledger-row">
-            <dt>{label}</dt>
+            <dt>{t(label)}</dt>
             <dd>{value}</dd>
           </div>
         ))}
       </dl>
-      <p className="lp-text lp-muted">You can change every value when you start a session in the score tracker.</p>
+      <p className="lp-text lp-muted">{t('You can change every value when you start a session in the score tracker.')}</p>
     </section>
   );
 }
 
 function Leaderboard() {
+  const { t, locale } = useLang();
   const [rows, setRows] = useState(null);
   const [failed, setFailed] = useState(false);
 
@@ -335,13 +340,13 @@ function Leaderboard() {
 
   return (
     <section className="lp-section" id="leaderboard">
-      <h2 className="lp-h2">Chip leaders</h2>
-      <p className="lp-lead">Everyone starts with 1,000 chips. Online Quick Match games move them. Score tracker sessions are private and don't count.</p>
-      {failed && <p className="lp-text">The leaderboard couldn't load because the server isn't reachable. Try again in a minute.</p>}
-      {!failed && rows === null && <p className="lp-text lp-muted">Loading the leaderboard...</p>}
+      <h2 className="lp-h2">{t('Chip leaders')}</h2>
+      <p className="lp-lead">{t("Everyone starts with {n} chips. Online Quick Match games move them. Score tracker sessions are private and don't count.", { n: START_CHIPS.toLocaleString(locale) })}</p>
+      {failed && <p className="lp-text">{t("The leaderboard couldn't load because the server isn't reachable. Try again in a minute.")}</p>}
+      {!failed && rows === null && <p className="lp-text lp-muted">{t('Loading the leaderboard...')}</p>}
       {rows?.length === 0 && (
         <p className="lp-text">
-          Nobody has signed in yet. <a className="lp-inline-link" href="/scores">Sign in</a> to get your first 1,000 chips.
+          {t('Nobody has signed in yet.')} <a className="lp-inline-link" href="/scores">{t('Sign in')}</a> {t('to get your first {n} chips.', { n: START_CHIPS.toLocaleString(locale) })}
         </p>
       )}
       {rows?.length > 0 && (
@@ -353,7 +358,7 @@ function Leaderboard() {
                 {r.id ? <a className="lp-board-link" href={`/u/${r.id}`}>{r.name}</a> : r.name}
               </span>
               <span className="lp-board-stat" />
-              <span className="lp-board-pts">{r.balance.toLocaleString()}</span>
+              <span className="lp-board-pts">{r.balance.toLocaleString(locale)}</span>
             </li>
           ))}
         </ol>
@@ -363,6 +368,7 @@ function Leaderboard() {
 }
 
 function AccountLink() {
+  const { t, locale } = useLang();
   const [me, setMe] = useState(null);
   useEffect(() => {
     getMe().then(setMe).catch(() => setMe(null));
@@ -370,31 +376,35 @@ function AccountLink() {
   if (!me) return null;
   if (!me.user) {
     return (
-      <button className="lp-account" onClick={() => signIn('/scores')}>Sign in</button>
+      <button className="lp-account" onClick={() => signIn('/scores')}>{t('Sign in')}</button>
     );
   }
   return (
     <a className="lp-account" href="/profile">
-      {me.user.name} · {me.balance.toLocaleString()} chips
+      {me.user.name} · {t('{n} chips', { n: me.balance.toLocaleString(locale) })}
     </a>
   );
 }
 
 export default function Landing() {
+  const { t } = useLang();
   return (
     <div className="lp">
       <header className="lp-hero">
         <DealingTable />
-        <AccountLink />
+        <div className="lp-top">
+          <AccountLink />
+          <LanguageToggle className="lp-lang" />
+        </div>
         <div className="lp-hero-copy">
           <h1 className="lp-title">Tiến Lên</h1>
           <p className="lp-tagline">
-            The Vietnamese card game. Play online with friends, or keep score when you play at the table.
+            {t('The Vietnamese card game. Play online with friends, or keep score when you play at the table.')}
           </p>
           <nav className="lp-ctas">
-            <a className="lp-btn lp-btn-gold" href="/play">Play online</a>
-            <a className="lp-btn" href="/scores">Keep score</a>
-            <a className="lp-btn lp-btn-quiet" href="#how-to-play">How to play</a>
+            <a className="lp-btn lp-btn-gold" href="/play">{t('Play online')}</a>
+            <a className="lp-btn" href="/scores">{t('Keep score')}</a>
+            <a className="lp-btn lp-btn-quiet" href="#how-to-play">{t('How to play')}</a>
           </nav>
         </div>
       </header>
@@ -406,8 +416,8 @@ export default function Landing() {
       </main>
 
       <footer className="lp-footer">
-        Made for our games with Vy and Thư. <a className="lp-inline-link" href="/privacy">Privacy</a>{' '}
-        <a className="lp-inline-link" href="/terms">Terms</a>
+        {t('Made for our games with Vy and Thư.')} <a className="lp-inline-link" href="/privacy">{t('Privacy')}</a>{' '}
+        <a className="lp-inline-link" href="/terms">{t('Terms')}</a>
       </footer>
     </div>
   );

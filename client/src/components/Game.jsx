@@ -5,8 +5,11 @@ import Table from './Table.jsx';
 import MoneyDisplay from './MoneyDisplay.jsx';
 import EmoteBar from './EmoteBar.jsx';
 import EmoteOverlay from './EmoteOverlay.jsx';
+import LanguageToggle from './LanguageToggle.jsx';
 import { useSound } from '../hooks/useSound.js';
-import { ordinal, formatDelta, describeChop, describeStuckLast, describeTwos } from '../utils/scoring.js';
+import { formatDelta } from '../utils/scoring.js';
+import { useLang } from '../i18n/index.jsx';
+import { placeName, chopText, stuckLastText, twosText } from '../i18n/describe.js';
 
 const CONFETTI_COLORS = ['#f0c040', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22'];
 
@@ -45,43 +48,44 @@ function tone(n) {
   return n > 0 ? 'positive' : n < 0 ? 'negative' : '';
 }
 
-function handEvents(data, name) {
+function handEvents(t, data, name) {
   const events = [];
-  if (data.threeSpadeWin) events.push(`${name(data.order[0])} finished with the 3♠`);
-  if (data.stuckLast) events.push(describeStuckLast({ order: data.order.map(name), stuckLast: data.stuckLast }));
-  for (const id of data.cong) events.push(`${name(id)} never played a card (cóng)`);
-  for (const chop of data.chops) events.push(describeChop({ ...chop, by: name(chop.by), victim: name(chop.victim) }));
+  if (data.threeSpadeWin) events.push(t('{name} finished with the 3♠', { name: name(data.order[0]) }));
+  if (data.stuckLast) events.push(stuckLastText(t, { order: data.order.map(name), stuckLast: data.stuckLast }));
+  for (const id of data.cong) events.push(t('{name} never played a card (cóng)', { name: name(id) }));
+  for (const chop of data.chops) events.push(chopText(t, { ...chop, by: name(chop.by), victim: name(chop.victim) }));
   return events;
 }
 
 function HandResult({ result, myId, waiting, onNext }) {
+  const { t } = useLang();
   const { data } = result;
-  const name = (id) => result.nicknames[id] || 'Player';
+  const name = (id) => result.nicknames[id] || t('Player');
   const winner = data.instantWin || data.order[0];
   const ids = data.instantWin
     ? [winner, ...Object.keys(result.points).filter((id) => id !== winner)]
     : data.order;
-  const events = handEvents(data, name);
+  const events = handEvents(t, data, name);
   const myChips = result.chips[myId] ?? 0;
 
   return (
     <div className="overlay">
-      <h2>{winner === myId ? 'You win!' : `${name(winner)} wins`}</h2>
-      {data.instantWin && <p className="result-detail">Instant win: {INSTANT_WINS[result.instantWinType]}</p>}
+      <h2>{winner === myId ? t('You win!') : t('{name} wins', { name: name(winner) })}</h2>
+      {data.instantWin && <p className="result-detail">{t('Instant win: {type}', { type: t(INSTANT_WINS[result.instantWinType]) })}</p>}
       <table className="result-table">
         <thead>
           <tr>
-            <th>Place</th>
-            <th>Player</th>
-            <th>Points</th>
-            <th>Chips</th>
+            <th>{t('Place')}</th>
+            <th>{t('Player')}</th>
+            <th>{t('Points')}</th>
+            <th>{t('Chips')}</th>
           </tr>
         </thead>
         <tbody>
           {ids.map((id, i) => (
             <tr key={id} className={id === myId ? 'result-me' : ''}>
-              <td>{data.instantWin && i > 0 ? '-' : ordinal(i + 1)}</td>
-              <td>{id === myId ? 'You' : name(id)}</td>
+              <td>{data.instantWin && i > 0 ? '-' : placeName(t, i + 1)}</td>
+              <td>{id === myId ? t('You') : name(id)}</td>
               <td className={tone(result.points[id])}>{formatDelta(result.points[id])}</td>
               <td className={tone(result.chips[id])}>{formatDelta(result.chips[id])}</td>
             </tr>
@@ -93,15 +97,16 @@ function HandResult({ result, myId, waiting, onNext }) {
           {events.map((e) => <li key={e}>{e}</li>)}
         </ul>
       )}
-      <div className={`chip-change ${tone(myChips)}`}>{formatDelta(myChips)} chips</div>
+      <div className={`chip-change ${tone(myChips)}`}>{t('{chips} chips', { chips: formatDelta(myChips) })}</div>
       <button className="btn btn-primary" onClick={onNext} disabled={waiting}>
-        {waiting ? 'Waiting...' : 'Next Hand'}
+        {waiting ? t('Waiting...') : t('Next Hand')}
       </button>
     </div>
   );
 }
 
 export default function Game({ socket, gameState, setGameState, nicknames, botFlags, myId, playerOrder, rejoinResult, onGameState, onGameStart }) {
+  const { t } = useLang();
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [handOver, setHandOver] = useState(null);
   const [toast, setToast] = useState(null);
@@ -123,8 +128,8 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   const awaySet = new Set(gameState.away || []);
   const myPlace = finished.indexOf(myId) + 1;
 
-  const showToast = useCallback((msg, ms = 2500) => {
-    setToast(msg);
+  const showToast = useCallback((render, ms = 2500) => {
+    setToast(() => render);
     setTimeout(() => setToast(null), ms);
   }, []);
 
@@ -135,7 +140,10 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   useEffect(() => {
     if (finished.length > prevFinishedRef.current) {
       const id = finished[finished.length - 1];
-      showToast(`${id === myId ? 'You' : nicknames[id] || 'Player'} finished ${ordinal(finished.length)}`);
+      const place = finished.length;
+      showToast((t) => (id === myId
+        ? t('You finished {place}', { place: placeName(t, place) })
+        : t('{name} finished {place}', { name: nicknames[id] || t('Player'), place: placeName(t, place) })));
     }
     prevFinishedRef.current = finished.length;
   }, [finished, myId, nicknames, showToast]);
@@ -202,7 +210,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       }
     };
 
-    const onInvalidPlay = ({ reason }) => showToast(reason, 2000);
+    const onInvalidPlay = ({ reason }) => showToast((t) => t(reason), 2000);
 
     const onEmote = ({ emoteId, from }) => {
       const id = Date.now() + Math.random();
@@ -214,10 +222,10 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     };
 
     const onPlayerAway = ({ nickname, left }) => showToast(
-      left ? `${nickname} left. A bot is finishing their hand.` : `${nickname} lost connection. A bot plays until they're back.`,
+      (t) => t(left ? '{name} left. A bot is finishing their hand.' : "{name} lost connection. A bot plays until they're back.", { name: nickname }),
       3500,
     );
-    const onPlayerBack = ({ nickname }) => showToast(`${nickname} is back`);
+    const onPlayerBack = ({ nickname }) => showToast((t) => t('{name} is back', { name: nickname }));
     const onWaiting = () => setWaitingNext(true);
 
     const onKicked = (data) => {
@@ -229,13 +237,12 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       setGameOverInfo(data);
     };
 
-    const onPlayerKicked = ({ nickname }) => showToast(`${nickname} was removed (not enough chips)`, 3000);
+    const onPlayerKicked = ({ nickname }) => showToast((t) => t('{name} was removed (not enough chips)', { name: nickname }), 3000);
 
     const onChop = (chop) => {
-      const twos = describeTwos(chop);
-      if (chop.by === myId) showToast(`You chopped ${chop.victimName}'s ${twos}`, 3000);
-      else if (chop.victim === myId) showToast(`${chop.byName} chopped your ${twos}`, 3000);
-      else showToast(`${chop.byName} chopped ${chop.victimName}'s ${twos}`, 3000);
+      if (chop.by === myId) showToast((t) => t("You chopped {victim}'s {twos}", { victim: chop.victimName, twos: twosText(t, chop) }), 3000);
+      else if (chop.victim === myId) showToast((t) => t('{by} chopped your {twos}', { by: chop.byName, twos: twosText(t, chop) }), 3000);
+      else showToast((t) => t("{by} chopped {victim}'s {twos}", { by: chop.byName, victim: chop.victimName, twos: twosText(t, chop) }), 3000);
     };
 
     socket.on('game-state', onState);
@@ -331,8 +338,8 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   });
 
   const myBalance = gameState.balances?.[myId] ?? 0;
-  const myNickname = nicknames[myId] || 'You';
-  const turnNickname = nicknames[gameState.turn] || 'Unknown';
+  const myNickname = nicknames[myId] || t('You');
+  const turnNickname = nicknames[gameState.turn] || t('Unknown');
   const passedSet = new Set(gameState.passedPlayers || []);
 
   return (
@@ -344,15 +351,15 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
             <div key={oppId} className={`opponent-slot ${gameState.turn === oppId ? 'active-turn' : ''} ${passedSet.has(oppId) || place ? 'passed' : ''}`}>
               <div className="opponent-info">
                 <span className="opponent-name">
-                  {nicknames[oppId] || 'Player'}
-                  {botFlags[oppId] && <span className="bot-badge">BOT</span>}
-                  {awaySet.has(oppId) && <span className="bot-badge">AWAY</span>}
+                  {nicknames[oppId] || t('Player')}
+                  {botFlags[oppId] && <span className="bot-badge">{t('BOT')}</span>}
+                  {awaySet.has(oppId) && <span className="bot-badge">{t('AWAY')}</span>}
                 </span>
                 <MoneyDisplay amount={gameState.balances?.[oppId] ?? 0} />
               </div>
               <OpponentHand count={gameState.opponents?.[oppId] ?? 0} />
-              {place > 0 && <span className="passed-label place-label">{ordinal(place)}</span>}
-              {!place && passedSet.has(oppId) && <span className="passed-label">Passed</span>}
+              {place > 0 && <span className="passed-label place-label">{placeName(t, place)}</span>}
+              {!place && passedSet.has(oppId) && <span className="passed-label">{t('Passed')}</span>}
             </div>
           );
         })}
@@ -362,8 +369,11 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
         <button className="mute-btn" onClick={toggleMute}>
           {muted ? '\u{1F507}' : '\u{1F50A}'}
         </button>
+        <LanguageToggle className="game-lang" />
         <div className={`turn-indicator ${isMyTurn ? 'your-turn' : ''}`}>
-          {myPlace ? `You finished ${ordinal(myPlace)}` : isMyTurn ? 'Your turn' : `${turnNickname}'s turn`}
+          {myPlace
+            ? t('You finished {place}', { place: placeName(t, myPlace) })
+            : isMyTurn ? t('Your turn') : t("{name}'s turn", { name: turnNickname })}
         </div>
         <Table cards={gameState.table} animatePlay={animatePlay} />
       </div>
@@ -377,14 +387,14 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
             onClick={handlePass}
             disabled={!gameState.table || gameState.table.length === 0}
           >
-            Pass
+            {t('Pass')}
           </button>
           <button
             className="btn btn-primary"
             onClick={handlePlay}
             disabled={selectedIds.size === 0}
           >
-            Play {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+            {selectedIds.size > 0 ? t('Play ({n})', { n: selectedIds.size }) : t('Play')}
           </button>
         </div>
       )}
@@ -397,7 +407,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
         <Hand cards={gameState.hand} selectedIds={selectedIds} onToggle={toggleCard} dealing={dealing} />
       </div>
 
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className="toast">{toast(t)}</div>}
 
       {emotes.map((e) => (
         <EmoteOverlay key={e.id} emoteId={e.emoteId} from={e.from} />
@@ -409,21 +419,21 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
 
       {kickedInfo && (
         <div className="disconnected-overlay">
-          <h2>Insufficient Chips</h2>
-          <p>You need at least {kickedInfo.needed} chips to continue.</p>
-          <p>Your balance: {kickedInfo.balance} chips</p>
+          <h2>{t('Insufficient Chips')}</h2>
+          <p>{t('You need at least {needed} chips to continue.', { needed: kickedInfo.needed })}</p>
+          <p>{t('Your balance: {balance} chips', { balance: kickedInfo.balance })}</p>
           <button className="btn btn-primary" onClick={() => window.location.reload()}>
-            Back to Lobby
+            {t('Back to Lobby')}
           </button>
         </div>
       )}
 
       {gameOverInfo && (
         <div className="disconnected-overlay">
-          <h2>Game Over</h2>
-          <p>{gameOverInfo.reason}</p>
+          <h2>{t('Game Over')}</h2>
+          <p>{t(gameOverInfo.reason)}</p>
           <button className="btn btn-primary" onClick={() => window.location.reload()}>
-            Back to Lobby
+            {t('Back to Lobby')}
           </button>
         </div>
       )}

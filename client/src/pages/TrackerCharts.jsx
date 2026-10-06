@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { gameDeltas, formatDelta } from '../utils/scoring.js';
+import { useLang } from '../i18n/index.jsx';
 
 const WIDTH = 520;
 const HEIGHT = 220;
@@ -26,6 +27,7 @@ function spreadLabels(items, top, bottom) {
 }
 
 export function PointsChart({ session }) {
+  const { t } = useLang();
   const { players, games, rules } = session;
   const [hover, setHover] = useState(null);
   const svgRef = useRef(null);
@@ -66,7 +68,7 @@ export function PointsChart({ session }) {
 
   return (
     <section className="st-card tc-card">
-      <h2 className="st-h2 st-h2-flush">Points over time</h2>
+      <h2 className="st-h2 st-h2-flush">{t('Points over time')}</h2>
       <div className="tc-legend">
         {series.map((s) => (
           <span key={s.name} className="tc-legend-item">
@@ -81,17 +83,17 @@ export function PointsChart({ session }) {
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           className="tc-svg"
           role="img"
-          aria-label={`Running points after each of ${steps} games`}
+          aria-label={t('Running points after each of {n} games', { n: steps })}
           onMouseMove={track}
           onTouchStart={track}
           onTouchMove={track}
           onMouseLeave={() => setHover(null)}
         >
-          {ticks.map((t) => (
-            <g key={t}>
-              <line x1={PAD.left} x2={PAD.left + innerW} y1={y(t)} y2={y(t)} className={t === 0 ? 'tc-zero' : 'tc-grid'} />
-              <text x={PAD.left - 6} y={y(t)} className="tc-axis" textAnchor="end" dominantBaseline="middle">
-                {formatDelta(t)}
+          {ticks.map((tick) => (
+            <g key={tick}>
+              <line x1={PAD.left} x2={PAD.left + innerW} y1={y(tick)} y2={y(tick)} className={tick === 0 ? 'tc-zero' : 'tc-grid'} />
+              <text x={PAD.left - 6} y={y(tick)} className="tc-axis" textAnchor="end" dominantBaseline="middle">
+                {formatDelta(tick)}
               </text>
             </g>
           ))}
@@ -124,7 +126,7 @@ export function PointsChart({ session }) {
             className="tc-tooltip"
             style={{ left: `${(x(hover) / WIDTH) * 100}%`, transform: `translateX(${hover > steps / 2 ? '-105%' : '5%'})` }}
           >
-            <div className="tc-tooltip-title">{hover === 0 ? 'Start' : `After game ${hover}`}</div>
+            <div className="tc-tooltip-title">{hover === 0 ? t('Start') : t('After game {n}', { n: hover })}</div>
             {[...series].sort((a, b) => b.values[hover] - a.values[hover]).map((s) => (
               <div key={s.name} className="tc-tooltip-row">
                 <span className={`tc-swatch tc-series-${s.slot}`} />
@@ -145,6 +147,7 @@ function placeIndex(game, player) {
 }
 
 export function HeadToHead({ session }) {
+  const { t } = useLang();
   const { players, games } = session;
   const record = useMemo(() => {
     const r = {};
@@ -165,13 +168,13 @@ export function HeadToHead({ session }) {
 
   return (
     <section className="st-card tc-card">
-      <h2 className="st-h2 st-h2-flush">Head to head</h2>
-      <p className="st-small st-muted">Games each player finished above the other.</p>
+      <h2 className="st-h2 st-h2-flush">{t('Head to head')}</h2>
+      <p className="st-small st-muted">{t('Games each player finished above the other.')}</p>
       <table className="st-table tc-h2h">
         <thead>
           <tr>
             <th className="st-left" />
-            {players.map((p) => <th key={p}>vs {p}</th>)}
+            {players.map((p) => <th key={p}>{t('vs {name}', { name: p })}</th>)}
           </tr>
         </thead>
         <tbody>

@@ -455,11 +455,17 @@
   }
 }
 
-.lp-account {
+.lp-top {
   position: absolute;
   top: 20px;
   right: clamp(20px, 6vw, 88px);
   z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-account {
   padding: 9px 16px;
   border-radius: 7px;
   border: 1.5px solid rgba(241, 230, 208, 0.35);
@@ -526,7 +532,38 @@
 .lp-legal-nav {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 18px;
+}
+
+.lp-legal-nav .lp-lang {
+  margin-left: auto;
+}
+
+.lang-toggle.lp-lang {
+  padding: 3px;
+  border: 1.5px solid rgba(216, 164, 74, 0.5);
+  background: rgba(42, 9, 7, 0.4);
+  font: 600 0.78rem/1 var(--body);
+}
+
+.lang-toggle.lp-lang span {
+  padding: 6px 10px;
+  color: var(--gold-dim);
+}
+
+.lang-toggle.lp-lang .lang-on {
+  background: var(--gold);
+  color: var(--lacquer-deep);
+}
+
+.lang-toggle.lp-lang:hover {
+  border-color: var(--gold);
+}
+
+.lang-toggle.lp-lang:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
 }
 
 .lp-legal-title {

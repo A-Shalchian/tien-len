@@ -13,7 +13,7 @@ Then I added an online version, so they can play on my site instead of on Facebo
   <img src="screenshots/profile.png" width="300" alt="Profile with sessions grouped">
 </p>
 
-The screenshots use made-up players.
+The screenshots use made-up players. The whole site switches between English and Vietnamese.
 
 ## Built with
 

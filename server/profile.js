@@ -75,6 +75,7 @@ function gameView(g, seats, userId, nameOf) {
       };
     }),
     events: describeEvents(g.data),
+    data: g.data,
   };
 }
 
@@ -173,6 +174,7 @@ async function onlineHistory(userId, limit = 50) {
   return hands.map((h) => {
     const seats = byHand[h.id] || [];
     const names = Object.fromEntries(seats.map((p) => [String(p.seat), p.name]));
+    const data = renamePlayers(h.data, (seat) => names[seat] || 'Player');
     return {
       id: h.id,
       at: h.created_at,
@@ -187,7 +189,8 @@ async function onlineHistory(userId, limit = 50) {
           chips: p.chips,
         }))
         .sort((a, b) => (a.place || 99) - (b.place || 99)),
-      events: describeEvents(renamePlayers(h.data, (seat) => names[seat] || 'Player')),
+      events: describeEvents(data),
+      data,
     };
   });
 }

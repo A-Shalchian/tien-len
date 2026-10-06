@@ -16,7 +16,9 @@ function siteOrigin() {
 }
 
 export function allowedOrigins() {
-  const origins = [siteOrigin(), ...(process.env.NODE_ENV === 'production' ? [] : DEV_ORIGINS)];
+  const site = siteOrigin();
+  const local = !site || site.startsWith('http://');
+  const origins = [site, ...(local ? DEV_ORIGINS : [])];
   return [...new Set(origins.filter(Boolean))];
 }
 

@@ -29,6 +29,13 @@ function cleanRules(input, playerCount, previous) {
   return rules;
 }
 
+function playedAt(value) {
+  const now = Date.now();
+  const at = new Date(value).getTime();
+  if (!Number.isFinite(at) || at > now + 60000 || at < now - 7 * 24 * 3600 * 1000) return new Date(now);
+  return new Date(Math.min(at, now));
+}
+
 function cleanChipRate(value, fallback) {
   return Math.min(1000, Math.max(0, toInt(value, fallback)));
 }
@@ -265,9 +272,12 @@ router.post('/sessions/:id/games', requireUser(async (req, res, user) => {
   const { game, error } = validateGame(names, s.rules, req.body || {});
   if (error) return res.status(400).json({ error });
 
+  const clientId = typeof req.body?.clientId === 'string' ? req.body.clientId.slice(0, 64) : null;
   await pool.query(
-    `insert into games (id, session_id, data, rules, chip_rate, recorded_by) values ($1, $2, $3, $4, $5, $6)`,
-    [newId(), s.id, game, s.rules, s.chip_rate, user.id],
+    `insert into games (id, session_id, data, rules, chip_rate, recorded_by, client_id, created_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
+     on conflict (session_id, client_id) where client_id is not null do nothing`,
+    [newId(), s.id, game, s.rules, s.chip_rate, user.id, clientId, playedAt(req.body?.playedAt)],
   );
   res.status(201).json(await sessionView(s, user.id));
 }));

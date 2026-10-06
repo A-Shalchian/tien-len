@@ -624,3 +624,14 @@
 .pf-undone-toggle {
   margin-left: 0;
 }
+
+.st-offline {
+  border-color: #5a4a22;
+  background: #2a2618;
+  color: #e8c26a;
+}
+
+.st-badge-pending {
+  margin-left: 0;
+  background: #2a2618;
+}

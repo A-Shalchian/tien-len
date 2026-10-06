@@ -39,6 +39,9 @@ create table if not exists games (
 
 create index if not exists games_session_idx on games (session_id, created_at);
 
+alter table games add column if not exists client_id text;
+create unique index if not exists games_client_id_idx on games (session_id, client_id) where client_id is not null;
+
 create table if not exists chip_ledger (
   id bigserial primary key,
   user_id text not null references "user"(id),

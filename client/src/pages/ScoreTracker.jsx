@@ -4,6 +4,7 @@ import {
   isLegacyRules, describeChop, describeStuckLast, rulesSummary,
 } from '../utils/scoring.js';
 import { api, getMe, signIn, signOut } from '../utils/api.js';
+import { cached, remember, queuedGames, setQueuedGames, newClientId } from '../utils/offline.js';
 import ConsentGate from './ConsentGate.jsx';
 import './scores.css';
 
@@ -21,7 +22,12 @@ export default function ScoreTracker() {
   const [me, setMe] = useState(undefined);
 
   const loadMe = useCallback(() => {
-    getMe().then(setMe).catch(() => setMe({ user: null, offline: true }));
+    getMe()
+      .then((m) => setMe(m.user ? remember('me', m) : m))
+      .catch(() => {
+        const saved = cached('me');
+        setMe(saved ? { ...saved, offline: true } : { user: null, offline: true });
+      });
   }, []);
 
   useEffect(loadMe, [loadMe]);
@@ -154,7 +160,13 @@ function SessionList({ onOpen }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    api('/sessions').then(setSessions).catch((e) => setError(e.message));
+    api('/sessions')
+      .then((list) => setSessions(remember('sessions', list)))
+      .catch((e) => {
+        const saved = cached('sessions');
+        if (e.offline && saved) setSessions(saved);
+        else setError(e.message);
+      });
   }, []);
 
   return (
@@ -355,17 +367,76 @@ function PenaltyInput({ label, field, values, onChange }) {
 }
 
 function SessionView({ id, onBack }) {
-  const [session, setSession] = useState(null);
+  const [serverSession, setServerSession] = useState(() => cached(`session:${id}`));
+  const [pending, setPending] = useState(() => queuedGames(id));
+  const [offline, setOffline] = useState(false);
   const [error, setError] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const setSession = useCallback((s) => setServerSession(remember(`session:${id}`, s)), [id]);
+
+  const sync = useCallback(async () => {
+    for (const game of queuedGames(id)) {
+      try {
+        setSession(await api(`/sessions/${id}/games`, { method: 'POST', body: game }));
+      } catch (err) {
+        if (err.offline) {
+          setOffline(true);
+          break;
+        }
+        setError(`A game saved offline couldn't sync: ${err.message}`);
+      }
+      setQueuedGames(id, queuedGames(id).filter((g) => g.clientId !== game.clientId));
+    }
+    setPending(queuedGames(id));
+  }, [id, setSession]);
+
   useEffect(() => {
-    setSession(null);
-    api(`/sessions/${id}`).then(setSession).catch((e) => setError(e.message));
-  }, [id]);
+    setServerSession(cached(`session:${id}`));
+    setPending(queuedGames(id));
+    api(`/sessions/${id}`)
+      .then((s) => {
+        setSession(s);
+        setOffline(false);
+        sync();
+      })
+      .catch((e) => {
+        if (e.offline && cached(`session:${id}`)) setOffline(true);
+        else setError(e.message);
+      });
+  }, [id, setSession, sync]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      setOffline(false);
+      sync();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [sync]);
+
+  const session = useMemo(() => serverSession && {
+    ...serverSession,
+    games: [
+      ...serverSession.games,
+      ...pending.map((g) => ({ ...g, id: g.clientId, at: g.playedAt, rules: serverSession.rules, pending: true })),
+    ],
+  }, [serverSession, pending]);
 
   const standings = useMemo(() => (session ? sessionStats(session) : []), [session]);
   const links = useMemo(() => Object.fromEntries((session?.links || []).map((l) => [l.name, l])), [session]);
+
+  const recordGame = async (draft) => {
+    const game = { ...draft, clientId: newClientId(), playedAt: new Date().toISOString() };
+    try {
+      setSession(await api(`/sessions/${id}/games`, { method: 'POST', body: game }));
+    } catch (err) {
+      if (!err.offline) throw err;
+      setQueuedGames(id, [...queuedGames(id), game]);
+      setPending(queuedGames(id));
+      setOffline(true);
+    }
+  };
 
   const deleteSession = async () => {
     if (!confirmDelete) {
@@ -376,11 +447,20 @@ function SessionView({ id, onBack }) {
     onBack();
   };
 
-  const removeGame = async (gameId) => {
-    setSession(await api(`/sessions/${id}/games/${gameId}`, { method: 'DELETE' }));
+  const removeGame = async (game) => {
+    if (game.pending) {
+      setQueuedGames(id, queuedGames(id).filter((g) => g.clientId !== game.clientId));
+      setPending(queuedGames(id));
+      return;
+    }
+    try {
+      setSession(await api(`/sessions/${id}/games/${game.id}`, { method: 'DELETE' }));
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
-  if (error) {
+  if (error && !session) {
     return (
       <>
         <button className="st-btn st-btn-ghost" onClick={onBack}>Back</button>
@@ -403,6 +483,13 @@ function SessionView({ id, onBack }) {
       <p className="st-small st-muted">
         {isLeader ? 'You lead this session.' : `Led by ${session.leaderName}. Only they can record games and change settings.`}
       </p>
+      {offline && (
+        <p className="st-card st-small st-offline">
+          You're offline. Games you record stay on this phone and sync when you're back online.
+        </p>
+      )}
+      {pending.length > 0 && !offline && <p className="st-small st-muted">Syncing {pending.length} saved games...</p>}
+      {error && <p className="st-error">{error}</p>}
 
       <section className="st-card">
         <table className="st-table">
@@ -453,18 +540,18 @@ function SessionView({ id, onBack }) {
       </section>
 
       {isLeader && <InvitePanel code={session.inviteCode} />}
-      {isLeader && <RecordGame session={session} onSaved={setSession} />}
-      {isLeader && <SettingsPanel session={session} onSaved={setSession} />}
+      {isLeader && <RecordGame session={session} onRecord={recordGame} />}
+      {isLeader && !offline && <SettingsPanel session={serverSession} onSaved={setSession} />}
 
       <h2 className="st-h2">History ({session.games.length})</h2>
       {session.games.length === 0 && <p className="st-muted">No games recorded yet.</p>}
       <ul className="st-list">
         {session.games.map((g, i) => ({ g, n: i + 1 })).reverse().map(({ g, n }) => (
-          <GameRow key={g.id} game={g} number={n} session={session} onRemove={isLeader ? () => removeGame(g.id) : null} />
+          <GameRow key={g.id} game={g} number={n} session={session} onRemove={isLeader ? () => removeGame(g) : null} />
         ))}
       </ul>
 
-      {isLeader && (
+      {isLeader && !offline && (
         <button className="st-btn st-btn-danger st-btn-block" onClick={deleteSession}>
           {confirmDelete ? 'Tap again to delete this session' : 'Delete session'}
         </button>
@@ -473,7 +560,7 @@ function SessionView({ id, onBack }) {
   );
 }
 
-function RecordGame({ session, onSaved }) {
+function RecordGame({ session, onRecord }) {
   const { players, rules } = session;
   const legacy = isLegacyRules(rules);
   const [order, setOrder] = useState([]);
@@ -524,7 +611,7 @@ function RecordGame({ session, onSaved }) {
     setBusy(true);
     setError(null);
     try {
-      onSaved(await api(`/sessions/${session.id}/games`, { method: 'POST', body: draft }));
+      await onRecord(draft);
       reset();
     } catch (err) {
       setError(err.message);
@@ -684,6 +771,7 @@ function GameRow({ game, number, session, onRemove }) {
         <span className="st-small st-muted">
           {new Date(game.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
         </span>
+        {game.pending && <span className="st-badge st-badge-pending">Not synced</span>}
         {onRemove && (
           <button
             className="st-btn st-btn-ghost st-btn-sm"

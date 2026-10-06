@@ -7,11 +7,27 @@ export const STARTING_CHIPS = 1000;
 const env = (name) => process.env[name]?.trim();
 const baseURL = env('BETTER_AUTH_URL');
 
+const UNUSED_AUTH_PATHS = [
+  '/update-user', '/change-email', '/change-password', '/set-password', '/delete-user',
+  '/link-social', '/unlink-account', '/list-accounts', '/get-access-token', '/refresh-token', '/account-info',
+  '/sign-up/email', '/sign-in/email', '/request-password-reset', '/reset-password',
+  '/send-verification-email', '/verify-email',
+];
+
+export function cleanImage(url) {
+  return typeof url === 'string' && url.startsWith('https://lh3.googleusercontent.com/') ? url : null;
+}
+
+export function cleanName(name) {
+  return typeof name === 'string' ? name.trim().slice(0, 40) || 'Player' : 'Player';
+}
+
 export const auth = betterAuth({
   database: pool,
   secret: env('BETTER_AUTH_SECRET'),
   baseURL,
   trustedOrigins: [baseURL],
+  disabledPaths: UNUSED_AUTH_PATHS,
   socialProviders: {
     google: {
       clientId: env('GOOGLE_CLIENT_ID'),

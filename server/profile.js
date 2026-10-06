@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool, transaction } from './db.js';
-import { getUser, isAdmin } from './auth.js';
+import { getUser, isAdmin, cleanImage, cleanName } from './auth.js';
 import { getBalance, applyDailyTopUp } from './chips.js';
 import { gameChips } from './game/payout.js';
 import {
@@ -25,11 +25,11 @@ export async function loadProfile(userId) {
   if (!r) return null;
   return {
     id: r.id,
-    name: r.display_name || r.google_name,
-    googleName: r.google_name,
+    name: r.display_name || cleanName(r.google_name),
+    googleName: cleanName(r.google_name),
     email: r.email,
-    image: r.hide_avatar ? null : r.google_image,
-    googleImage: r.google_image,
+    image: r.hide_avatar ? null : cleanImage(r.google_image),
+    googleImage: cleanImage(r.google_image),
     createdAt: r.created_at,
     displayName: r.display_name,
     hideAvatar: r.hide_avatar,
@@ -394,8 +394,8 @@ router.get('/leaderboard', handle(async (req, res) => {
   );
   res.json(rows.map((r) => ({
     id: r.private_profile ? null : r.id,
-    name: r.name,
-    image: r.image,
+    name: cleanName(r.name),
+    image: cleanImage(r.image),
     balance: r.balance,
   })));
 }));

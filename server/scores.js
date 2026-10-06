@@ -1,7 +1,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import { pool, transaction } from './db.js';
-import { getUser } from './auth.js';
+import { getUser, cleanImage, cleanName } from './auth.js';
 import { hasAcceptedTerms } from './profile.js';
 import { gameChips } from './game/payout.js';
 import { DEFAULT_PLACE_POINTS, DEFAULT_PENALTIES, gameDeltas } from '../client/src/utils/scoring.js';
@@ -156,8 +156,8 @@ async function sessionView(s, userId) {
     links: players.map((p) => ({
       name: p.name,
       userId: p.user_id,
-      userName: p.user_name,
-      image: p.image,
+      userName: p.user_id ? cleanName(p.user_name) : null,
+      image: cleanImage(p.image),
       isMe: p.user_id === userId,
       chips: chips[p.name],
     })),

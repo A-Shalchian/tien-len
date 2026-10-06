@@ -198,6 +198,7 @@ function rejoinSeat(socketId, { userId, key }) {
 }
 
 function dropAwayPlayers(room) {
+  if (room.game && !room.game.handOver) return [];
   const gone = room.players.filter((p) => p.away && !canReturn(p)).map((p) => p.id);
   for (const id of gone) dropPlayer(room, id);
   return gone;

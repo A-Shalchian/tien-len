@@ -175,7 +175,13 @@ function scheduleBotIfNeeded(room) {
   clearTimeout(room.botTimer);
   const away = room.players.find((p) => p.id === turn)?.away;
   const delay = away ? 700 : 800 + Math.random() * 1200;
-  room.botTimer = setTimeout(() => executeBotTurn(room, turn), delay);
+  room.botTimer = setTimeout(() => {
+    try {
+      executeBotTurn(room, turn);
+    } catch (err) {
+      console.error(`Bot turn failed in room ${room.code}`, err);
+    }
+  }, delay);
 }
 
 function botContext(game, playerId) {
@@ -184,7 +190,7 @@ function botContext(game, playerId) {
     opponents: game.players
       .filter((id) => id !== playerId && !game.finished.includes(id))
       .map((id) => game.hands[id].length),
-    ownerCards: game.table ? game.hands[game.table.playedBy].length : null,
+    ownerCards: game.table ? game.hands[game.table.playedBy]?.length ?? null : null,
     tableChopped: Boolean(game.table?.twos),
   };
 }

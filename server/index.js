@@ -8,7 +8,7 @@ import {
   getNicknames, getBotFlags, getAway, isAutoPlayed,
   leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, busyReason, closeRoom, liveSnapshot, STILL_FINISHING, REJOIN_GRACE_MS,
+  listOpenRooms, busyReason, closeRoom, liveSnapshot, STILL_FINISHING, roomsHostedBy, REJOIN_GRACE_MS,
 } from './rooms.js';
 import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
@@ -41,14 +41,14 @@ const io = new Server(httpServer, {
   },
 });
 
-function adminCloseRoom(code) {
+function closeRoomFor(code, reason, skipSocketId = null) {
   const room = closeRoom(code);
   if (!room) return false;
   clearTimeout(room.botTimer);
   for (const p of room.players) {
     if (!p.socketId) continue;
-    io.to(p.socketId).emit('room-closed', { reason: 'An admin closed this room.' });
     io.sockets.sockets.get(p.socketId)?.leave(room.code);
+    if (p.socketId !== skipSocketId) io.to(p.socketId).emit('room-closed', { reason });
   }
   broadcastRoomList();
   return true;
@@ -56,7 +56,7 @@ function adminCloseRoom(code) {
 
 app.use('/api/admin', createAdminRouter({
   live: () => ({ ...liveSnapshot(), connections: io.engine.clientsCount }),
-  closeRoom: adminCloseRoom,
+  closeRoom: (code) => closeRoomFor(code, 'An admin closed this room.'),
 }));
 app.use('/api', profileRouter);
 app.use('/api', scoresRouter);
@@ -240,6 +240,11 @@ function executeBotTurn(room, playerId) {
 
 function handleLeave(socket, left) {
   leaveMatchmaking(socket.id);
+  const current = getRoomBySocket(socket.id);
+  if (left && current && !current.game && !current.ranked && current.host === seatOf(current, socket.id)?.id) {
+    closeRoomFor(current.code, 'The host closed this room.', socket.id);
+    return;
+  }
   const out = leaveSeat(socket.id, { left });
   if (!out) return;
 
@@ -257,6 +262,20 @@ function handleLeave(socket, left) {
     }, REJOIN_GRACE_MS + 1000);
   } else {
     emitToHumans(room, 'player-left', { nicknames: getNicknames(room), playerCount: room.players.length });
+  }
+}
+
+function releaseHostedRooms(conn) {
+  for (const room of roomsHostedBy(conn)) {
+    if (!room.game) {
+      closeRoomFor(room.code, 'The host closed this room.');
+      continue;
+    }
+    const host = room.players.find((p) => p.id === room.host);
+    const hostSocket = io.sockets.sockets.get(host.socketId);
+    if (!hostSocket) continue;
+    handleLeave(hostSocket, true);
+    hostSocket.emit('room-closed', { reason: 'You opened a new room, so you left this game.' });
   }
 }
 
@@ -290,13 +309,20 @@ io.on('connection', (socket) => {
   });
 
   socket.on('create-room', ({ nickname, stake, maxPlayers, fillWithBots, isPublic } = {}) => {
+    if (getRoomBySocket(socket.id)) handleLeave(socket, true);
+    const conn = connOf(socket, nickname);
+    releaseHostedRooms(conn);
     const code = createRoom(
-      connOf(socket, nickname),
+      conn,
       Math.max(1, Math.min(100, parseInt(stake) || 10)),
       parseInt(maxPlayers) || 4,
       fillWithBots === true,
       isPublic === true,
     );
+    if (!code) {
+      socket.emit('join-error', { error: 'Too many rooms are open right now. Try again in a minute.' });
+      return;
+    }
     socket.join(code);
     socket.emit('room-created', { roomCode: code });
     broadcastRoomList();
@@ -304,6 +330,8 @@ io.on('connection', (socket) => {
 
   socket.on('join-room', ({ roomCode, nickname } = {}) => {
     const code = String(roomCode || '').toUpperCase();
+    const current = getRoomBySocket(socket.id);
+    if (current && current.code !== code) handleLeave(socket, true);
     const result = joinRoom(code, connOf(socket, nickname));
 
     if (result.error) {

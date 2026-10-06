@@ -4,6 +4,7 @@ import { createBotId, pickBotName } from './game/bot.js';
 import { minBalance } from './game/payout.js';
 
 export const REJOIN_GRACE_MS = 60000;
+export const MAX_ROOMS = 500;
 
 const rooms = new Map();
 const socketToRoom = new Map();
@@ -27,9 +28,16 @@ function newCode() {
   return code;
 }
 
+function ownerKey(conn) {
+  if (conn.userId) return `u:${conn.userId}`;
+  if (conn.key) return `k:${conn.key}`;
+  return `s:${conn.socketId}`;
+}
+
 function humanSeat(conn) {
   return {
     id: `p_${crypto.randomBytes(6).toString('hex')}`,
+    owner: ownerKey(conn),
     socketId: conn.socketId,
     key: conn.key || null,
     userId: conn.userId || null,
@@ -46,6 +54,7 @@ function seatOf(room, socketId) {
 }
 
 function createRoom(conn, stake = 10, maxPlayers = 4, fillWithBots = false, isPublic = false) {
+  if (rooms.size >= MAX_ROOMS) return null;
   const code = newCode();
   const host = humanSeat(conn);
   rooms.set(code, {
@@ -313,6 +322,14 @@ function listOpenRooms() {
   return list;
 }
 
+function roomsHostedBy(conn) {
+  const owner = ownerKey(conn);
+  return [...rooms.values()].filter((room) => {
+    const host = room.players.find((p) => p.id === room.host);
+    return !room.ranked && host && !host.away && host.owner === owner;
+  });
+}
+
 function closeRoom(code) {
   const room = rooms.get(code);
   if (!room) return null;
@@ -371,5 +388,5 @@ export {
   getRoomBySocket, seatOf, getNicknames, getBotFlags, getAway, isAutoPlayed,
   leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
   joinMatchmaking, leaveMatchmaking,
-  listOpenRooms, busyReason, closeRoom, liveSnapshot, STILL_FINISHING,
+  listOpenRooms, busyReason, closeRoom, liveSnapshot, STILL_FINISHING, roomsHostedBy,
 };

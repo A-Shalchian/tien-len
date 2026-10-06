@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   rooms, createRoom, startManually, leaveSeat, closeIfAbandoned, dropAwayPlayers,
-  joinMatchmaking, busyReason, STILL_FINISHING, REJOIN_GRACE_MS,
+  joinMatchmaking, busyReason, STILL_FINISHING, roomsHostedBy, MAX_ROOMS, REJOIN_GRACE_MS,
 } from './rooms.js';
 import { playCards, pass, mustPlay3S, dealHand } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
@@ -48,4 +48,23 @@ test('leaving a Quick Match keeps you busy until that hand is over', () => {
   playOut(room.game);
   dropAwayPlayers(room);
   assert.equal(busyReason('user-a'), null);
+});
+
+test('rooms are tracked by the account or browser that created them', () => {
+  const signedIn = createRoom({ socketId: 'h-1', userId: 'user-host', nickname: 'Host' });
+  const guest = createRoom({ socketId: 'h-2', key: 'guest-key-1', nickname: 'Guest' });
+
+  assert.deepEqual(roomsHostedBy({ socketId: 'other-tab', userId: 'user-host' }).map((r) => r.code), [signedIn]);
+  assert.deepEqual(roomsHostedBy({ socketId: 'other-tab', key: 'guest-key-1' }).map((r) => r.code), [guest]);
+  assert.equal(roomsHostedBy({ socketId: 'someone-else' }).length, 0);
+
+  rooms.delete(signedIn);
+  rooms.delete(guest);
+});
+
+test('no new rooms open once the cap is reached', () => {
+  const made = [];
+  while (rooms.size < MAX_ROOMS) made.push(createRoom({ socketId: `cap-${made.length}`, nickname: 'P' }));
+  assert.equal(createRoom({ socketId: 'cap-over', nickname: 'P' }), null);
+  for (const code of made) rooms.delete(code);
 });

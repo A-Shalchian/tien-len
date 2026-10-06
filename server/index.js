@@ -65,6 +65,10 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 await migrate();
+httpServer.on('error', (err) => {
+  console.error('Server could not start', err);
+  process.exit(1);
+});
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

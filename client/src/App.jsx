@@ -7,34 +7,34 @@ import Landing from './pages/Landing.jsx';
 import Privacy from './pages/Privacy.jsx';
 import Terms from './pages/Terms.jsx';
 import Profile from './pages/Profile.jsx';
+import NavBar from './components/NavBar.jsx';
 
 function getRoomCodeFromURL() {
   const match = window.location.pathname.match(/^\/room\/([A-Z0-9]{4})$/i);
   return match ? match[1].toUpperCase() : null;
 }
 
+function Page({ path }) {
+  if (path.startsWith('/scores')) return <ScoreTracker />;
+  if (path === '/profile') return <Profile />;
+  const profileMatch = path.match(/^\/u\/([A-Za-z0-9_-]+)$/);
+  if (profileMatch) return <Profile userId={profileMatch[1]} />;
+  return <GameApp />;
+}
+
 export default function App() {
   const path = window.location.pathname;
-  if (path.startsWith('/scores')) {
-    return <ScoreTracker />;
-  }
-  if (path === '/privacy') {
-    return <Privacy />;
-  }
-  if (path === '/terms') {
-    return <Terms />;
-  }
-  if (path === '/profile') {
-    return <Profile />;
-  }
-  const profileMatch = path.match(/^\/u\/([A-Za-z0-9_-]+)$/);
-  if (profileMatch) {
-    return <Profile userId={profileMatch[1]} />;
-  }
-  if (path === '/' || path === '') {
-    return <Landing />;
-  }
-  return <GameApp />;
+  if (path === '/' || path === '') return <Landing />;
+  if (path === '/privacy') return <Privacy />;
+  if (path === '/terms') return <Terms />;
+  return (
+    <div className="app-shell">
+      <NavBar path={path} />
+      <main className="app-main">
+        <Page path={path} />
+      </main>
+    </div>
+  );
 }
 
 function GameApp() {

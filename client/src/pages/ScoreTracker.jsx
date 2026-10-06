@@ -2,11 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   DEFAULT_PLACE_POINTS, DEFAULT_PENALTIES, gameDeltas, sessionStats, formatDelta, isLegacyRules,
 } from '../utils/scoring.js';
-import { api, getMe, signIn, signOut } from '../utils/api.js';
+import { api, getMe, signIn } from '../utils/api.js';
 import { cached, remember, queuedGames, setQueuedGames, newClientId } from '../utils/offline.js';
 import { useLang } from '../i18n/index.jsx';
 import { placeName, chopText, stuckLastText, rulesText } from '../i18n/describe.js';
-import LanguageToggle from '../components/LanguageToggle.jsx';
 import ConsentGate from './ConsentGate.jsx';
 import { PointsChart, HeadToHead } from './TrackerCharts.jsx';
 import './scores.css';
@@ -58,31 +57,8 @@ export default function ScoreTracker() {
   return (
     <div className="st">
       <div className="st-inner">
-        <AccountBar me={me} />
         {body}
       </div>
-    </div>
-  );
-}
-
-function AccountBar({ me }) {
-  const { t, locale } = useLang();
-  return (
-    <div className="st-account">
-      <a className="st-link" href="/">{t('Home')}</a>
-      <span className="st-account-user">
-        {me?.user && (
-          <>
-            <a className="st-account-link" href="/profile">
-              {me.user.image && <img className="st-avatar" src={me.user.image} alt="" referrerPolicy="no-referrer" />}
-              <span>{me.user.name}</span>
-            </a>
-            <span className="st-chips">{t('{n} chips', { n: me.balance.toLocaleString(locale) })}</span>
-            <button className="st-btn st-btn-ghost st-btn-sm" onClick={signOut}>{t('Sign out')}</button>
-          </>
-        )}
-        <LanguageToggle />
-      </span>
     </div>
   );
 }

@@ -12,6 +12,8 @@
 - [x] Score tracker works offline: the page is cached, games recorded with no signal stay on the phone and sync later. Sessions have a points-over-time chart and a head-to-head table.
 - [x] EN/VI toggle on every page, saved per browser. Phones set to Vietnamese start in Vietnamese. Translations live in `client/src/i18n/vi/`.
 
+- [x] Navbar on the play, score tracker and profile pages: home, play online, score tracker, profile and the language toggle.
+
 ## Later
 
 - Stop chip farming in Quick Match

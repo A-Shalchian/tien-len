@@ -4,6 +4,7 @@ export default {
   'Score tracker': 'Ghi điểm',
   Profile: 'Hồ sơ',
   'Sign in with Google': 'Đăng nhập bằng Google',
+  'Sign in': 'Đăng nhập',
   'Sign out': 'Đăng xuất',
   Back: 'Quay lại',
   'Loading...': 'Đang tải...',

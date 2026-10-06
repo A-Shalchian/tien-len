@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getMe, signIn } from '../utils/api.js';
 import ConsentGate from '../pages/ConsentGate.jsx';
 import MoneyDisplay from './MoneyDisplay.jsx';
-import LanguageToggle from './LanguageToggle.jsx';
 import { useLang } from '../i18n/index.jsx';
 
 const STAKE_OPTIONS = [5, 10, 25, 50, 100, 250];
@@ -225,7 +224,6 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
 
   return (
     <div className="lobby">
-      <LanguageToggle className="lobby-lang" />
       <h1 className="lobby-title">Tiến Lên</h1>
       <p className="lobby-subtitle">{t('Vietnamese Card Game')}</p>
 

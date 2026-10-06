@@ -5,7 +5,6 @@ import Table from './Table.jsx';
 import MoneyDisplay from './MoneyDisplay.jsx';
 import EmoteBar from './EmoteBar.jsx';
 import EmoteOverlay from './EmoteOverlay.jsx';
-import LanguageToggle from './LanguageToggle.jsx';
 import { useSound } from '../hooks/useSound.js';
 import { formatDelta } from '../utils/scoring.js';
 import { useLang } from '../i18n/index.jsx';
@@ -369,7 +368,6 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
         <button className="mute-btn" onClick={toggleMute}>
           {muted ? '\u{1F507}' : '\u{1F50A}'}
         </button>
-        <LanguageToggle className="game-lang" />
         <div className={`turn-indicator ${isMyTurn ? 'your-turn' : ''}`}>
           {myPlace
             ? t('You finished {place}', { place: placeName(t, myPlace) })

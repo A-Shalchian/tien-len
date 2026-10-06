@@ -1,4 +1,4 @@
-const CACHE = 'tienlen-v2';
+const CACHE = 'tienlen-v3';
 const SHELL = '/';
 
 self.addEventListener('install', (event) => {
@@ -35,13 +35,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((hit) => hit || fetch(request).then((response) => {
-      if (response.ok) {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy));
-      }
-      return response;
-    })),
-  );
+  const fetchAndCache = () => fetch(request).then((response) => {
+    if (response.ok) {
+      const copy = response.clone();
+      caches.open(CACHE).then((cache) => cache.put(request, copy));
+    }
+    return response;
+  });
+
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(caches.match(request).then((hit) => hit || fetchAndCache()));
+    return;
+  }
+
+  event.respondWith(fetchAndCache().catch(() => caches.match(request)));
 });

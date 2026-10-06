@@ -64,6 +64,10 @@ export async function getUser(req) {
   return getUserFromHeaders(req.headers);
 }
 
+export async function getSession(req) {
+  return auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+}
+
 export async function getUserFromHeaders(headers) {
   const session = await auth.api.getSession({ headers: fromNodeHeaders(headers) });
   return session?.user || null;

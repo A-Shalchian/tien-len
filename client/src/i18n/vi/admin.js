@@ -57,4 +57,9 @@ export default {
   'Chips to add or remove for {name}': 'Số chip cộng hoặc trừ cho {name}',
   Apply: 'Áp dụng',
   'Not allowed': 'Không được phép',
+  'Recent admin actions': 'Thao tác quản trị gần đây',
+  'No admin actions yet.': 'Chưa có thao tác quản trị nào.',
+  '{amount} chips for {name}, balance now {balance}': '{amount} chip cho {name}, số dư còn {balance}',
+  'Closed room {code}': 'Đã đóng phòng {code}',
+  'Sign in again': 'Đăng nhập lại',
 };

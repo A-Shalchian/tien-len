@@ -1,9 +1,18 @@
 import express from 'express';
 import { pool, transaction } from './db.js';
-import { getUser, isAdmin } from './auth.js';
+import { getSession, isAdmin } from './auth.js';
 import { getBalance } from './chips.js';
 
 const MAX_ADJUSTMENT = 100000;
+const FRESH_SIGN_IN_MS = 24 * 60 * 60 * 1000;
+const STALE_SIGN_IN = 'Sign in again to change chips. Your last sign-in was more than a day ago.';
+
+function logAction(db, admin, action, target, details) {
+  return db.query(
+    'insert into admin_log (admin_id, admin_email, action, target, details) values ($1, $2, $3, $4, $5)',
+    [admin.id, admin.email, action, target, details],
+  );
+}
 
 function fromOurSite(req) {
   const origin = req.get('origin');
@@ -21,7 +30,7 @@ function perDay(rows) {
 }
 
 async function overview() {
-  const [users, active, signups, chips, reasons, top, online, hands, tracker] = await Promise.all([
+  const [users, active, signups, chips, reasons, top, online, hands, tracker, actions] = await Promise.all([
     pool.query(
       `select count(*)::int as total,
               count(*) filter (where "createdAt" > now() - interval '1 day')::int as today,
@@ -75,6 +84,14 @@ async function overview() {
               (select count(*) from games where undone_by is null and created_at > now() - interval '7 days')::int as games_week,
               (select count(distinct session_id) from games where undone_by is null and created_at > now() - interval '7 days')::int as active_week`,
     ),
+    pool.query(
+      `select a.action, a.target, a.details, a.created_at, a.admin_email,
+              coalesce(pr.display_name, u.name) as target_name
+       from admin_log a
+       left join "user" u on a.action = 'chips' and u.id = a.target
+       left join profiles pr on pr.user_id = u.id
+       order by a.created_at desc limit 20`,
+    ),
   ]);
   return {
     users: { ...users.rows[0], activeToday: active.rows[0].today, activeWeek: active.rows[0].week, signups: perDay(signups.rows) },
@@ -91,6 +108,14 @@ async function overview() {
       gamesWeek: tracker.rows[0].games_week,
       activeWeek: tracker.rows[0].active_week,
     },
+    actions: actions.rows.map((r) => ({
+      action: r.action,
+      target: r.target,
+      targetName: r.target_name,
+      details: r.details,
+      at: r.created_at,
+      by: r.admin_email,
+    })),
   };
 }
 
@@ -124,9 +149,10 @@ export function createAdminRouter({ live, closeRoom }) {
   const router = express.Router();
 
   router.use((req, res, next) => {
-    getUser(req).then((user) => {
-      if (!isAdmin(user)) return res.status(404).json({ error: 'Not found' });
-      req.admin = user;
+    getSession(req).then((found) => {
+      if (!isAdmin(found?.user)) return res.status(404).json({ error: 'Not found' });
+      req.admin = found.user;
+      req.signedInAt = new Date(found.session.createdAt).getTime();
       next();
     }).catch((err) => {
       console.error(err);
@@ -153,23 +179,26 @@ export function createAdminRouter({ live, closeRoom }) {
     if (!userId || !Number.isInteger(amount) || amount === 0 || Math.abs(amount) > MAX_ADJUSTMENT) {
       return res.status(400).json({ error: `Enter a whole number of chips between -${MAX_ADJUSTMENT} and ${MAX_ADJUSTMENT}.` });
     }
+    if (!(Date.now() - req.signedInAt < FRESH_SIGN_IN_MS)) {
+      return res.status(403).json({ error: STALE_SIGN_IN, reauth: true });
+    }
     const result = await transaction(async (db) => {
       const found = await db.query('select id from "user" where id = $1 for update', [userId]);
       if (!found.rowCount) return { status: 404, error: 'That user does not exist.' };
       const balance = await getBalance(userId, db);
       if (balance + amount < 0) return { status: 400, error: 'That would put the balance below zero.' };
       await db.query(`insert into chip_ledger (user_id, amount, reason) values ($1, $2, 'admin')`, [userId, amount]);
+      await logAction(db, req.admin, 'chips', userId, { amount, balance: balance + amount });
       return { balance: balance + amount };
     });
     if (result.error) return res.status(result.status).json({ error: result.error });
-    console.log(`Admin ${req.admin.email} adjusted chips for ${userId} by ${amount}`);
     res.json(result);
   }));
 
   router.post('/rooms/:code/close', handle(async (req, res) => {
     const code = String(req.params.code).toUpperCase();
     if (!closeRoom(code)) return res.status(404).json({ error: 'That room is already closed.' });
-    console.log(`Admin ${req.admin.email} closed room ${code}`);
+    await logAction(pool, req.admin, 'close-room', code, null);
     res.json({ ok: true });
   }));
 

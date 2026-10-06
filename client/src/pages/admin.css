@@ -286,3 +286,9 @@
   margin-top: 4px;
   color: var(--st-neg);
 }
+
+.ad-reauth {
+  margin-top: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}

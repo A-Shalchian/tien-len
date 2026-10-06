@@ -88,3 +88,15 @@ create table if not exists online_hand_players (
 );
 
 create index if not exists online_hand_players_user_idx on online_hand_players (user_id);
+
+create table if not exists admin_log (
+  id bigserial primary key,
+  admin_id text references "user"(id) on delete set null,
+  admin_email text not null,
+  action text not null,
+  target text,
+  details jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists admin_log_created_idx on admin_log (created_at desc);

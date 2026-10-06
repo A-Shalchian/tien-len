@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '../utils/api.js';
+import { api, signIn } from '../utils/api.js';
 import { useLang } from '../i18n/index.jsx';
 import { formatDateTime } from '../i18n/describe.js';
 import './scores.css';
@@ -156,6 +156,34 @@ function Dashboard({ data, error, onRefresh }) {
       </div>
 
       <UserSearch />
+
+      <section className="st-stack">
+        <h2 className="st-h2">{t('Recent admin actions')}</h2>
+        {data.actions.length === 0 && <p className="st-lead">{t('No admin actions yet.')}</p>}
+        {data.actions.length > 0 && (
+          <div className="st-card ad-users">
+            <table className="st-table">
+              <tbody>
+                {data.actions.map((a, i) => (
+                  <tr key={i}>
+                    <td className="ad-when">{formatDateTime(locale, a.at, true)}</td>
+                    <td>
+                      {a.action === 'chips'
+                        ? t('{amount} chips for {name}, balance now {balance}', {
+                          amount: a.details.amount > 0 ? `+${n(a.details.amount)}` : n(a.details.amount),
+                          name: a.targetName || t('a deleted account'),
+                          balance: n(a.details.balance),
+                        })
+                        : t('Closed room {code}', { code: a.target })}
+                    </td>
+                    <td className="ad-email">{a.by}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -359,7 +387,7 @@ function UserRow({ user, onBalance }) {
         setAmount('');
         setMessage({ text: t('Done') });
       })
-      .catch((err) => setMessage({ error: true, text: t(err.message) }))
+      .catch((err) => setMessage({ error: true, text: t(err.message), reauth: Boolean(err.data?.reauth) }))
       .finally(() => setBusy(false));
   };
 
@@ -386,6 +414,9 @@ function UserRow({ user, onBalance }) {
           <button className="st-btn st-btn-primary" disabled={busy || !amount}>{t('Apply')}</button>
         </form>
         {message && <span className={`st-small ${message.error ? 'ad-msg-error' : 'ad-msg-ok'}`}>{message.text}</span>}
+        {message?.reauth && (
+          <button type="button" className="st-btn st-btn-ghost ad-reauth" onClick={() => signIn('/admin')}>{t('Sign in again')}</button>
+        )}
       </td>
     </tr>
   );

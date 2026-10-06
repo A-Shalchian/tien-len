@@ -14,7 +14,7 @@ export async function api(path, options = {}) {
   }
   if (res.status === 204) return null;
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || data.message || 'Request failed');
+  if (!res.ok) throw Object.assign(new Error(data.error || data.message || 'Request failed'), { data });
   return data;
 }
 

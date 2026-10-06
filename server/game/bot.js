@@ -1,10 +1,12 @@
-import { identifyCombo, canBeat } from './validator.js';
-import { sortCards } from './deck.js';
+import { identifyCombo, canBeat, isBomb } from './validator.js';
+import { sortCards, rankValue, cardValue } from './deck.js';
 
 const BOT_NAMES = [
   'Minh', 'Lan', 'Hoa', 'Duc', 'Thao',
   'Phong', 'Linh', 'Tuan', 'Mai', 'Khoa',
 ];
+const TWO = 12;
+const ACE = 11;
 
 let botCounter = 0;
 
@@ -13,167 +15,204 @@ function createBotId() {
 }
 
 function pickBotName(usedNames) {
-  const available = BOT_NAMES.filter(n => !usedNames.includes(n));
+  const available = BOT_NAMES.filter((n) => !usedNames.includes(n));
   if (available.length === 0) return `Bot${Math.floor(Math.random() * 99)}`;
   return available[Math.floor(Math.random() * available.length)];
 }
 
-function findBotPlay(hand, tableCombo, mustPlay3S) {
-  const sorted = sortCards(hand);
+const isTwo = (c) => c.rank === '2';
+const isThreeSpades = (c) => c.rank === '3' && c.suit === 'S';
+const comboKey = (combo) => combo.cards.map((c) => c.id).sort().join(',');
 
-  const allCombos = generateAllCombos(sorted);
-
-  const validPlays = allCombos.filter(combo => canBeat(combo, tableCombo));
-
-  if (mustPlay3S) {
-    const plays3S = validPlays.filter(c => c.cards.some(card => card.rank === '3' && card.suit === 'S'));
-    if (plays3S.length > 0) {
-      return selectPlay(plays3S);
-    }
-  }
-
-  if (validPlays.length === 0) return null;
-
-  return selectPlay(validPlays);
-}
-
-function selectPlay(validPlays) {
-  validPlays.sort((a, b) => {
-    if (a.cards.length !== b.cards.length) return b.cards.length - a.cards.length;
-    return comboStrength(a) - comboStrength(b);
-  });
-
-  const nonTwoPlays = validPlays.filter(c => !c.cards.some(card => card.rank === '2'));
-  if (nonTwoPlays.length > 0) return nonTwoPlays[0];
-
-  return validPlays[0];
-}
-
-function comboStrength(combo) {
-  let sum = 0;
-  for (const card of combo.cards) {
-    sum += card.rank === '2' ? 100 : 0;
-  }
-  return sum + (combo.high ? combo.high.rank === '2' ? 50 : 0 : 0);
-}
-
-function generateAllCombos(hand) {
-  const combos = [];
-
-  for (const card of hand) {
-    combos.push(identifyCombo([card]));
-  }
-
-  for (let i = 0; i < hand.length; i++) {
-    for (let j = i + 1; j < hand.length; j++) {
-      const c = identifyCombo([hand[i], hand[j]]);
-      if (c) combos.push(c);
-    }
-  }
-
-  for (let i = 0; i < hand.length; i++) {
-    for (let j = i + 1; j < hand.length; j++) {
-      for (let k = j + 1; k < hand.length; k++) {
-        const c = identifyCombo([hand[i], hand[j], hand[k]]);
-        if (c) combos.push(c);
-      }
-    }
-  }
-
-  if (hand.length >= 4) {
-    for (let i = 0; i < hand.length; i++) {
-      for (let j = i + 1; j < hand.length; j++) {
-        for (let k = j + 1; k < hand.length; k++) {
-          for (let l = k + 1; l < hand.length; l++) {
-            const c = identifyCombo([hand[i], hand[j], hand[k], hand[l]]);
-            if (c) combos.push(c);
-          }
-        }
-      }
-    }
-  }
-
-  for (let len = 3; len <= hand.length; len++) {
-    findSequences(hand, len, combos);
-  }
-
-  for (let pairs = 3; pairs * 2 <= hand.length; pairs++) {
-    findDoubleSequences(hand, pairs, combos);
-  }
-
-  return combos.filter(Boolean);
-}
-
-function findSequences(hand, len, combos) {
-  const byRank = groupByRank(hand);
-  const ranks = Object.keys(byRank).map(Number).sort((a, b) => a - b);
-
-  for (let i = 0; i <= ranks.length - len; i++) {
-    let consecutive = true;
-    for (let j = 1; j < len; j++) {
-      if (ranks[i + j] !== ranks[i] + j) {
-        consecutive = false;
-        break;
-      }
-    }
-    if (!consecutive) continue;
-
-    const cards = [];
-    for (let j = 0; j < len; j++) {
-      cards.push(byRank[ranks[i + j]][0]);
-    }
-    const c = identifyCombo(cards);
-    if (c) combos.push(c);
-  }
-}
-
-function findDoubleSequences(hand, pairCount, combos) {
-  const byRank = {};
-  for (const card of hand) {
-    const rv = rankValueLocal(card.rank);
-    if (rv === 12) continue;
-    if (!byRank[rv]) byRank[rv] = [];
-    byRank[rv].push(card);
-  }
-
-  const ranksWithPairs = Object.keys(byRank)
-    .map(Number)
-    .filter(r => byRank[r].length >= 2)
-    .sort((a, b) => a - b);
-
-  for (let i = 0; i <= ranksWithPairs.length - pairCount; i++) {
-    let consecutive = true;
-    for (let j = 1; j < pairCount; j++) {
-      if (ranksWithPairs[i + j] !== ranksWithPairs[i] + j) {
-        consecutive = false;
-        break;
-      }
-    }
-    if (!consecutive) continue;
-
-    const cards = [];
-    for (let j = 0; j < pairCount; j++) {
-      cards.push(byRank[ranksWithPairs[i + j]][0]);
-      cards.push(byRank[ranksWithPairs[i + j]][1]);
-    }
-    const c = identifyCombo(cards);
-    if (c) combos.push(c);
-  }
-}
-
-function groupByRank(hand) {
-  const groups = {};
-  for (const card of hand) {
-    const rv = rankValueLocal(card.rank);
-    if (!groups[rv]) groups[rv] = [];
-    groups[rv].push(card);
+function byRank(cards) {
+  const groups = new Map();
+  for (const c of sortCards(cards)) {
+    const r = rankValue(c.rank);
+    if (!groups.has(r)) groups.set(r, []);
+    groups.get(r).push(c);
   }
   return groups;
 }
 
-const RANKS_ORDER = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
-function rankValueLocal(rank) {
-  return RANKS_ORDER.indexOf(rank);
+function longestRun(pool, minPerRank) {
+  const groups = byRank(pool);
+  let best = [];
+  let run = [];
+  for (let r = 0; r < TWO; r++) {
+    if ((groups.get(r)?.length || 0) >= minPerRank) {
+      run.push(r);
+      if (run.length > best.length) best = [...run];
+    } else {
+      run = [];
+    }
+  }
+  return { ranks: best, groups };
 }
 
-export { createBotId, pickBotName, findBotPlay };
+function take(pool, cards) {
+  return pool.filter((c) => !cards.includes(c));
+}
+
+function takeQuads(pool, units) {
+  for (const [r, cards] of byRank(pool)) {
+    if (cards.length === 4 && r !== TWO) {
+      units.push(identifyCombo(cards));
+      pool = take(pool, cards);
+    }
+  }
+  return pool;
+}
+
+function takeRuns(pool, units, minPerRank, minLength) {
+  for (;;) {
+    const { ranks, groups } = longestRun(pool, minPerRank);
+    if (ranks.length < minLength) return pool;
+    const cards = ranks.flatMap((r) => groups.get(r).slice(-minPerRank));
+    units.push(identifyCombo(cards));
+    pool = take(pool, cards);
+  }
+}
+
+function takeGroups(pool, units, minSize = 1) {
+  for (const cards of byRank(pool).values()) {
+    if (cards.length < minSize) continue;
+    units.push(identifyCombo(cards));
+    pool = take(pool, cards);
+  }
+  return pool;
+}
+
+function planScore(units) {
+  const lowSingles = units.filter((u) => u.type === 'single' && rankValue(u.high.rank) < 7).length;
+  return units.length * 10 + lowSingles * 3;
+}
+
+function planHand(hand) {
+  const strategies = [
+    (pool, units) => takeGroups(takeRuns(pool, units, 1, 3), units),
+    (pool, units) => takeGroups(takeRuns(takeGroups(pool, units, 2), units, 1, 3), units),
+    (pool, units) => takeGroups(takeRuns(pool, units, 1, 5), units),
+  ];
+  let best = null;
+  for (const strategy of strategies) {
+    const units = [];
+    const pool = takeRuns(takeQuads(sortCards(hand), units), units, 2, 3);
+    strategy(pool, units);
+    if (!best || planScore(units) < planScore(best)) best = units;
+  }
+  return best;
+}
+
+function generateAllCombos(hand) {
+  const combos = [];
+  const groups = byRank(hand);
+  for (const cards of groups.values()) {
+    for (let i = 0; i < cards.length; i++) {
+      combos.push(identifyCombo([cards[i]]));
+      for (let j = i + 1; j < cards.length; j++) {
+        combos.push(identifyCombo([cards[i], cards[j]]));
+        for (let k = j + 1; k < cards.length; k++) combos.push(identifyCombo([cards[i], cards[j], cards[k]]));
+      }
+    }
+    if (cards.length === 4) combos.push(identifyCombo(cards));
+  }
+
+  const ranks = [...groups.keys()].filter((r) => r !== TWO).sort((a, b) => a - b);
+  for (let i = 0; i < ranks.length; i++) {
+    for (let j = i; j < ranks.length && ranks[j] === ranks[i] + (j - i); j++) {
+      const span = ranks.slice(i, j + 1);
+      if (span.length >= 3) {
+        const low = span.map((r) => groups.get(r)[0]);
+        combos.push(identifyCombo(low));
+        const top = groups.get(span[span.length - 1]);
+        if (top.length > 1) combos.push(identifyCombo([...low.slice(0, -1), top[top.length - 1]]));
+      }
+      const pairs = span.every((r) => groups.get(r).length >= 2);
+      if (pairs && span.length >= 3) {
+        combos.push(identifyCombo(span.flatMap((r) => groups.get(r).slice(-2))));
+      }
+    }
+  }
+  return combos.filter(Boolean);
+}
+
+function isBoss(unit) {
+  return isBomb(unit) || unit.cards.some(isTwo) || (unit.type === 'single' && rankValue(unit.high.rank) >= ACE);
+}
+
+function chooseLead(hand, plan, ctx) {
+  if (ctx.mustPlay3S) {
+    return plan.find((u) => u.cards.some(isThreeSpades)) || identifyCombo([hand.find(isThreeSpades)]);
+  }
+  if (plan.length === 1) return plan[0];
+
+  const bosses = plan.filter(isBoss);
+  if (plan.length === 2 && bosses.length > 0) return bosses[0];
+
+  let options = plan.filter((u) => !isBoss(u));
+  if (!options.length) options = plan.filter((u) => !isBomb(u));
+  if (!options.length) options = plan;
+
+  if (ctx.minOpponent <= 1) {
+    const multi = options.filter((u) => u.type !== 'single');
+    if (multi.length) options = multi;
+    else return identifyCombo([sortCards(hand)[hand.length - 1]]);
+  }
+
+  return [...options].sort((a, b) => cardValue(a.high) - cardValue(b.high) || b.cards.length - a.cards.length)[0];
+}
+
+function breakCost(combo, plan) {
+  const used = new Set(combo.cards.map((c) => c.id));
+  let cost = 0;
+  for (const unit of plan) {
+    const overlap = unit.cards.filter((c) => used.has(c.id)).length;
+    if (overlap === 0 || overlap === unit.cards.length) continue;
+    cost += unit.type === 'sequence' || unit.type === 'double-sequence' || unit.type === 'four-of-a-kind' ? 10 : 6;
+  }
+  return cost;
+}
+
+function chooseResponse(hand, plan, table, ctx) {
+  const candidates = generateAllCombos(hand).filter((c) => canBeat(c, table));
+  if (!candidates.length) return null;
+
+  const finishing = candidates.find((c) => c.cards.length === hand.length);
+  if (finishing) return finishing;
+
+  const units = new Set(plan.map(comboKey));
+  const chopping = table.high.rank === '2' || ctx.tableChopped;
+  const headsUp = ctx.opponentCount === 1;
+  const urgent = ctx.minOpponent <= (headsUp ? 4 : 2) || ctx.ownerCards <= 2;
+
+  let best = null;
+  let bestCost = Infinity;
+  for (const c of candidates) {
+    let cost = rankValue(c.high.rank);
+    if (!units.has(comboKey(c))) cost += breakCost(c, plan);
+    if (isBomb(c)) cost += chopping ? -30 : 15;
+    else cost += 12 * c.cards.filter(isTwo).length;
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = c;
+    }
+  }
+
+  const limit = urgent ? 45 : headsUp ? 30 : plan.length <= 3 ? 26 : ctx.opponentCount === 2 ? 22 : 16;
+  return bestCost <= limit ? best : null;
+}
+
+function findBotPlay(hand, tableCombo, ctx = {}) {
+  if (!hand.length) return null;
+  const context = {
+    mustPlay3S: Boolean(ctx.mustPlay3S),
+    minOpponent: Math.min(13, ...(ctx.opponents || [])),
+    opponentCount: (ctx.opponents || []).length,
+    ownerCards: ctx.ownerCards ?? 13,
+    tableChopped: Boolean(ctx.tableChopped),
+  };
+  const plan = planHand(hand);
+  return tableCombo ? chooseResponse(hand, plan, tableCombo, context) : chooseLead(hand, plan, context);
+}
+
+export { createBotId, pickBotName, findBotPlay, planHand };

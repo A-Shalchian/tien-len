@@ -153,7 +153,7 @@ test('bots finish hundreds of random hands with zero-sum chips', async () => {
         assert.ok(steps++ < 500, 'hand never ended');
         const id = g.turn;
         const table = g.table ? g.table.combo : null;
-        const choice = findBotPlay(g.hands[id], table, mustPlay3S(g, id));
+        const choice = findBotPlay(g.hands[id], table, { mustPlay3S: mustPlay3S(g, id) });
         let r = choice ? playCards(g, id, choice.cards.map((c) => c.id)) : null;
         if (!r || r.error) r = table ? pass(g, id) : playCards(g, id, [g.hands[id][0].id]);
         assert.equal(r.error, undefined, r.error);

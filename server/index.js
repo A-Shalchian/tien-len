@@ -178,13 +178,24 @@ function scheduleBotIfNeeded(room) {
   room.botTimer = setTimeout(() => executeBotTurn(room, turn), delay);
 }
 
+function botContext(game, playerId) {
+  return {
+    mustPlay3S: mustPlay3S(game, playerId),
+    opponents: game.players
+      .filter((id) => id !== playerId && !game.finished.includes(id))
+      .map((id) => game.hands[id].length),
+    ownerCards: game.table ? game.hands[game.table.playedBy].length : null,
+    tableChopped: Boolean(game.table?.twos),
+  };
+}
+
 function executeBotTurn(room, playerId) {
   const game = room.game;
   if (!game || game.handOver || game.turn !== playerId) return;
 
   const hand = game.hands[playerId];
   const table = game.table ? game.table.combo : null;
-  const choice = findBotPlay(hand, table, mustPlay3S(game, playerId));
+  const choice = findBotPlay(hand, table, botContext(game, playerId));
 
   let result = choice ? playCards(game, playerId, choice.cards.map((c) => c.id)) : null;
   if (!result || result.error) {

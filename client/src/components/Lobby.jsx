@@ -67,7 +67,7 @@ function ChipInfoModal({ onClose }) {
 }
 
 export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, onRoomJoined, onLeaveRoom, onGameStart, onGameState, error, setError }) {
-  const { t } = useLang();
+  const { t, href } = useLang();
   const [me, setMe] = useState(undefined);
   const [nickname, setNickname] = useState('');
   const [joinCode, setJoinCode] = useState(urlRoomCode || '');
@@ -302,7 +302,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                 ) : !signedIn ? (
                   <>
                     <p className="section-desc">{t('Quick Match bets the chips saved to your account. Sign in to play.')}</p>
-                    <button onClick={() => signIn('/play')} className="btn btn-primary">
+                    <button onClick={() => signIn(href('/play'))} className="btn btn-primary">
                       {t('Sign in with Google')}
                     </button>
                   </>

@@ -332,7 +332,7 @@ function HouseRules() {
 }
 
 function Leaderboard() {
-  const { t, locale } = useLang();
+  const { t, locale, href } = useLang();
   const [rows, setRows] = useState(null);
   const [failed, setFailed] = useState(false);
 
@@ -348,7 +348,7 @@ function Leaderboard() {
       {!failed && rows === null && <p className="lp-text lp-muted">{t('Loading the leaderboard...')}</p>}
       {rows?.length === 0 && (
         <p className="lp-text">
-          {t('Nobody has signed in yet.')} <a className="lp-inline-link" href="/scores">{t('Sign in')}</a> {t('to get your first {n} chips.', { n: START_CHIPS.toLocaleString(locale) })}
+          {t('Nobody has signed in yet.')} <a className="lp-inline-link" href={href('/scores')}>{t('Sign in')}</a> {t('to get your first {n} chips.', { n: START_CHIPS.toLocaleString(locale) })}
         </p>
       )}
       {rows?.length > 0 && (
@@ -357,7 +357,7 @@ function Leaderboard() {
             <li key={`${r.name}-${i}`} className={i === 0 ? 'lp-board-first' : ''}>
               <span className="lp-board-pos">{i + 1}</span>
               <span className="lp-board-name">
-                {r.id ? <a className="lp-board-link" href={`/u/${r.id}`}>{r.name}</a> : r.name}
+                {r.id ? <a className="lp-board-link" href={`/u/${r.id}`} rel="nofollow">{r.name}</a> : r.name}
               </span>
               <span className="lp-board-stat" />
               <span className="lp-board-pts">{r.balance.toLocaleString(locale)}</span>
@@ -370,7 +370,7 @@ function Leaderboard() {
 }
 
 export default function Landing() {
-  const { t } = useLang();
+  const { t, href } = useLang();
   return (
     <div className="lp">
       <header className="lp-hero">
@@ -381,8 +381,8 @@ export default function Landing() {
             {t('The Vietnamese card game. Play online with friends, or keep score when you play at the table.')}
           </p>
           <nav className="lp-ctas">
-            <a className="lp-btn lp-btn-gold" href="/play">{t('Play online')}</a>
-            <a className="lp-btn" href="/scores">{t('Keep score')}</a>
+            <a className="lp-btn lp-btn-gold" href={href('/play')}>{t('Play online')}</a>
+            <a className="lp-btn" href={href('/scores')}>{t('Keep score')}</a>
             <a className="lp-btn lp-btn-quiet" href="#how-to-play">{t('How to play')}</a>
           </nav>
         </div>
@@ -395,8 +395,8 @@ export default function Landing() {
       </div>
 
       <footer className="lp-footer">
-        {t('Made for our games with Vy and Thư.')} <a className="lp-inline-link" href="/privacy">{t('Privacy')}</a>{' '}
-        <a className="lp-inline-link" href="/terms">{t('Terms')}</a>
+        {t('Made for our games with Vy and Thư.')} <a className="lp-inline-link" href={href('/privacy')}>{t('Privacy')}</a>{' '}
+        <a className="lp-inline-link" href={href('/terms')}>{t('Terms')}</a>
       </footer>
     </div>
   );

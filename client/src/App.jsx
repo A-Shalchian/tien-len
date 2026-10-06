@@ -3,6 +3,7 @@ import Landing from './pages/Landing.jsx';
 import NotFound from './pages/NotFound.jsx';
 import NavBar from './components/NavBar.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import { splitPath, isPublicPath } from './i18n/routes.js';
 
 const GameApp = lazy(() => import('./GameApp.jsx'));
 const ScoreTracker = lazy(() => import('./pages/ScoreTracker.jsx'));
@@ -29,15 +30,16 @@ function Page({ path }) {
 
 const DARK_PAGES = ['/play'];
 
-export default function App() {
-  const path = window.location.pathname;
+export default function App({ pathname = window.location.pathname }) {
+  const { prefixed, path } = splitPath(pathname);
+  const known = !prefixed || isPublicPath(path);
   return (
     <div className="app-shell">
       <NavBar path={path} theme={DARK_PAGES.includes(path) || path.startsWith('/room/') ? 'dark' : 'lacquer'} />
       <main className="app-main">
         <ErrorBoundary>
           <Suspense fallback={null}>
-            <Page path={path} />
+            {known ? <Page path={path} /> : <NotFound />}
           </Suspense>
         </ErrorBoundary>
       </main>

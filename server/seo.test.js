@@ -13,6 +13,8 @@ const TEMPLATE = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, user-scalable=no" />
   <title>Default</title>
   <meta name="description" content="Default description" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="vi_VN" />
   <meta name="theme-color" content="#2a0907" />
 </head>
 <body><div id="root"></div></body>
@@ -152,7 +154,48 @@ test('robots.txt and sitemap.xml use the configured origin', async () => {
   const xml = await sitemap.text();
   assert.match(sitemap.headers.get('content-type'), /application\/xml/);
   const locs = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
-  assert.deepEqual(locs, ['/', '/play', '/scores', '/privacy', '/terms'].map((p) => ORIGIN + p));
+  assert.deepEqual(locs, [
+    '/', '/vi', '/play', '/vi/play', '/scores', '/vi/scores', '/privacy', '/vi/privacy', '/terms', '/vi/terms',
+  ].map((p) => ORIGIN + p));
+});
+
+test('vietnamese pages have their own URL, title, language and canonical', async () => {
+  for (const p of ['/vi', '/vi/play', '/vi/scores', '/vi/privacy', '/vi/terms']) {
+    const res = await get(p);
+    const html = await res.text();
+    assert.equal(res.status, 200, p);
+    assert.match(html, /<html lang="vi">/, p);
+    assert.ok(html.includes(`<link rel="canonical" href="${ORIGIN}${p}" />`), p);
+    assert.match(html, /<meta property="og:locale" content="vi_VN" \/>/, p);
+    assert.match(html, /<meta property="og:locale:alternate" content="en_US" \/>/, p);
+  }
+  const home = await (await get('/vi')).text();
+  assert.match(home, /<title>Tiến Lên miền Nam online \| Đánh bài tiến lên miễn phí<\/title>/);
+  assert.match(home, /ld\+json/);
+  assert.match(await (await get('/')).text(), /<html lang="en">/);
+});
+
+test('public pages link both languages with hreflang and x-default', async () => {
+  const cases = [['/', '/vi'], ['/vi', '/vi'], ['/play', '/vi/play'], ['/vi/terms', '/vi/terms']];
+  for (const [p, vi] of cases) {
+    const html = await (await get(p)).text();
+    const en = vi === '/vi' ? '/' : vi.replace(/^\/vi/, '');
+    assert.ok(html.includes(`<link rel="alternate" hreflang="en" href="${ORIGIN}${en}" />`), p);
+    assert.ok(html.includes(`<link rel="alternate" hreflang="vi" href="${ORIGIN}${vi}" />`), p);
+    assert.ok(html.includes(`<link rel="alternate" hreflang="x-default" href="${ORIGIN}${en}" />`), p);
+  }
+  assert.doesNotMatch(await (await get('/room/ABCD')).text(), /hreflang/);
+});
+
+test('vietnamese prefixes only exist for public pages', async () => {
+  for (const p of ['/vi/room/ABCD', '/vi/profile', '/vi/u/abc', '/vi/nope', '/vietnam']) {
+    const res = await get(p);
+    assert.equal(res.status, 404, p);
+  }
+  assert.match(await (await get('/vi/nope')).text(), /<title>Không tìm thấy trang \| Tiến Lên<\/title>/);
+  const slash = await get('/vi/');
+  assert.equal(slash.status, 301);
+  assert.equal(slash.headers.get('location'), '/vi');
 });
 
 test('a rebuilt index.html is picked up without a restart', async () => {

@@ -4,7 +4,7 @@ import { useLang } from '../i18n/index.jsx';
 import './scores.css';
 
 export default function ConsentGate({ onAccepted }) {
-  const { t } = useLang();
+  const { t, href } = useLang();
   const [over13, setOver13] = useState(false);
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState(null);
@@ -29,7 +29,7 @@ export default function ConsentGate({ onAccepted }) {
       <h1 className="st-title st-title-inline">{t('One step before you play')}</h1>
       <p className="st-muted">
         {t('Your account stores your Google name, email and photo, the sessions you join, and your chip history.')}{' '}
-        {policyBefore}<a className="st-link" href="/privacy" target="_blank" rel="noreferrer">{t('privacy policy')}</a>{policyAfter}
+        {policyBefore}<a className="st-link" href={href('/privacy')} target="_blank" rel="noreferrer">{t('privacy policy')}</a>{policyAfter}
       </p>
       <label className="st-check st-check-left">
         <input type="checkbox" checked={over13} onChange={(e) => setOver13(e.target.checked)} />
@@ -38,8 +38,8 @@ export default function ConsentGate({ onAccepted }) {
       <label className="st-check st-check-left">
         <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
         <span>
-          {t('I agree to the')} <a className="st-link" href="/terms" target="_blank" rel="noreferrer">{t('terms')}</a>{' '}
-          {t('and the')} <a className="st-link" href="/privacy" target="_blank" rel="noreferrer">{t('privacy policy')}</a>
+          {t('I agree to the')} <a className="st-link" href={href('/terms')} target="_blank" rel="noreferrer">{t('terms')}</a>{' '}
+          {t('and the')} <a className="st-link" href={href('/privacy')} target="_blank" rel="noreferrer">{t('privacy policy')}</a>
         </span>
       </label>
       {error && <p className="st-error">{t(error)}</p>}

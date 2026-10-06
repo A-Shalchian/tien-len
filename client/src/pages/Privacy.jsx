@@ -3,14 +3,14 @@ import { useLang } from '../i18n/index.jsx';
 import './landing.css';
 
 export function LegalPage({ title, lead, children }) {
-  const { t, locale } = useLang();
+  const { t, locale, href } = useLang();
   const updated = new Date(LEGAL_UPDATED).toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
   return (
     <div className="lp">
       <div className="lp-page">
         <nav className="lp-legal-nav">
-          <a className="lp-inline-link" href="/privacy">{t('Privacy policy')}</a>
-          <a className="lp-inline-link" href="/terms">{t('Terms of use')}</a>
+          <a className="lp-inline-link" href={href('/privacy')}>{t('Privacy policy')}</a>
+          <a className="lp-inline-link" href={href('/terms')}>{t('Terms of use')}</a>
         </nav>
         <h1 className="lp-h2 lp-legal-title">{title}</h1>
         <p className="lp-lead">{lead}</p>

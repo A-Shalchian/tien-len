@@ -87,10 +87,11 @@ function UserMenu({ me }) {
 }
 
 export default function NavBar({ path, theme = 'dark' }) {
-  const { t } = useLang();
-  const [me, setMe] = useState(() => cached('me'));
+  const { t, href } = useLang();
+  const [me, setMe] = useState(null);
 
   useEffect(() => {
+    setMe(cached('me'));
     const load = () => getMe().then(setMe).catch(() => {});
     load();
     window.addEventListener('focus', load);
@@ -99,10 +100,10 @@ export default function NavBar({ path, theme = 'dark' }) {
 
   return (
     <nav className={`nav nav-${theme}`}>
-      <a className="nav-brand" href="/">Tiến Lên</a>
+      <a className="nav-brand" href={href('/')}>Tiến Lên</a>
       <div className="nav-links">
         {LINKS.map((link) => (
-          <a key={link.href} href={link.href} className={`nav-link ${link.active(path) ? 'nav-on' : ''}`}>
+          <a key={link.href} href={href(link.href)} className={`nav-link ${link.active(path) ? 'nav-on' : ''}`}>
             {t(link.label)}
           </a>
         ))}

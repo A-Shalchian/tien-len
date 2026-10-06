@@ -20,7 +20,7 @@ function parseRoute() {
 }
 
 export default function ScoreTracker() {
-  const { t } = useLang();
+  const { t, href } = useLang();
   const [route, setRoute] = useState(parseRoute);
   const [me, setMe] = useState(undefined);
 
@@ -42,9 +42,9 @@ export default function ScoreTracker() {
   }, []);
 
   const open = useCallback((id) => {
-    history.pushState({}, '', id ? `/scores/${id}` : '/scores');
+    history.pushState({}, '', id ? `/scores/${id}` : href('/scores'));
     setRoute(parseRoute());
-  }, []);
+  }, [href]);
 
   let body;
   if (me === undefined) body = <p className="st-muted">{t('Loading...')}</p>;

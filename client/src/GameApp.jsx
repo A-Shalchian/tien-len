@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from './hooks/useSocket.js';
 import Lobby from './components/Lobby.jsx';
 import Game from './components/Game.jsx';
+import { useLang } from './i18n/index.jsx';
 
 function getRoomCodeFromURL() {
   const match = window.location.pathname.match(/^\/room\/([A-Z0-9]{4})$/i);
@@ -10,6 +11,7 @@ function getRoomCodeFromURL() {
 
 export default function GameApp() {
   const socket = useSocket();
+  const { href } = useLang();
   const [gameState, setGameState] = useState(null);
   const [roomCode, setRoomCode] = useState(null);
   const [nicknames, setNicknames] = useState({});
@@ -59,8 +61,8 @@ export default function GameApp() {
   const handleLeaveRoom = useCallback(() => {
     socket.emit('leave-room');
     resetToLobby();
-    history.pushState({}, '', '/play');
-  }, [socket, resetToLobby]);
+    history.pushState({}, '', href('/play'));
+  }, [socket, resetToLobby, href]);
 
   const handleGameStart = useCallback((data) => {
     setMyId(data.you);
@@ -110,11 +112,11 @@ export default function GameApp() {
     const onClosed = ({ reason }) => {
       resetToLobby();
       setError(reason);
-      history.pushState({}, '', '/play');
+      history.pushState({}, '', href('/play'));
     };
     socket.on('room-closed', onClosed);
     return () => socket.off('room-closed', onClosed);
-  }, [socket, resetToLobby]);
+  }, [socket, resetToLobby, href]);
 
   useEffect(() => {
     const askToRejoin = () => socket.emit('rejoin');

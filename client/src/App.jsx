@@ -25,13 +25,13 @@ function Page({ path }) {
   return <GameApp />;
 }
 
-const LACQUER_PAGES = ['/', '', '/privacy', '/terms'];
+const DARK_PAGES = ['/play'];
 
 export default function App() {
   const path = window.location.pathname;
   return (
     <div className="app-shell">
-      <NavBar path={path} theme={LACQUER_PAGES.includes(path) ? 'lacquer' : 'dark'} />
+      <NavBar path={path} theme={DARK_PAGES.includes(path) || path.startsWith('/room/') ? 'dark' : 'lacquer'} />
       <main className="app-main">
         <Page path={path} />
       </main>

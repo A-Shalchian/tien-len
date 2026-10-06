@@ -65,4 +65,5 @@ export default {
     'Thao tác này xóa ngay tài khoản, lượt đăng nhập, cài đặt và chip của bạn. Các phiên bạn làm chủ sẽ chuyển cho một người chơi khác đã liên kết, hoặc bị xóa nếu không còn ai liên kết. Các ván bạn đã chơi vẫn nằm trong phiên của người khác dưới tên người chơi của bạn, nhưng không còn liên kết với bạn. Không thể hoàn tác.',
   'Type DELETE to confirm': 'Nhập DELETE để xác nhận',
   'Delete my account': 'Xóa tài khoản của tôi',
+  'Profile sections': 'Các mục hồ sơ',
 };

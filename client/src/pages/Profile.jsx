@@ -77,52 +77,74 @@ function ProfileView({ id, me, onChanged }) {
   const tabs = ['sessions', 'online', 'chips', 'settings'];
   const tabLabels = { sessions: 'Sessions', online: 'Online', chips: 'Chip history', settings: 'Settings' };
 
+  const selectTab = (key) => {
+    setTab(key);
+    const url = key === 'sessions' ? window.location.pathname : `${window.location.pathname}?tab=${key}`;
+    history.replaceState(history.state, '', url);
+  };
+
   return (
-    <>
-      <header className="pf-header">
-        <Avatar name={data.name} image={data.image} />
-        <div className="pf-head-text">
-          <h1 className="st-title st-title-inline">{data.name}</h1>
-          <p className="st-small st-muted">
-            {t('Joined {date}', { date: formatDateTime(locale, data.joinedAt) })}
-            {data.isMe && me.profile.privateProfile && ` · ${t('Your profile is private')}`}
-            {data.isMe && !me.profile.privateProfile && (
-              <> · <a className="st-link" href={`/u/${data.id}`}>{t('Public view')}</a></>
-            )}
-          </p>
-        </div>
-      </header>
-
-      <dl className="pf-stats">
-        {data.balance !== null && <Stat label={t('Chips')} value={data.balance.toLocaleString()} />}
-        <Stat label={t('Online hands')} value={data.online.hands} />
-        <Stat label={t('Online wins')} value={data.online.wins} />
-        {data.online.chips !== null && <Stat label={t('Online chips')} value={formatDelta(data.online.chips)} />}
-      </dl>
-
-      {data.isMe && (
-        <>
-          <div className="pf-tabs" role="tablist">
+    <div className={`st-wide pf-layout ${data.isMe ? '' : 'pf-layout-solo'}`}>
+      <aside className="pf-side">
+        <PlayerCard data={data} me={me} />
+        {data.isMe && (
+          <nav className="pf-nav" role="tablist" aria-label={t('Profile sections')}>
             {tabs.map((key) => (
               <button
                 key={key}
                 role="tab"
                 aria-selected={tab === key}
-                className={`st-chip ${tab === key ? 'st-chip-on' : ''}`}
-                onClick={() => setTab(key)}
+                className={`pf-nav-item ${tab === key ? 'pf-nav-on' : ''}`}
+                onClick={() => selectTab(key)}
               >
                 {t(tabLabels[key])}
               </button>
             ))}
-          </div>
+          </nav>
+        )}
+      </aside>
 
+      {data.isMe && (
+        <section className="pf-main">
+          <h2 className="pf-section-title">{t(tabLabels[tab])}</h2>
           {tab === 'sessions' && <SessionList sessions={data.sessions} />}
           {tab === 'online' && <OnlineHands hands={data.onlineHands} />}
           {tab === 'chips' && <ChipHistory rows={data.chipHistory} />}
           {tab === 'settings' && <Settings me={me} onSaved={() => { onChanged(); load(); }} />}
-        </>
+        </section>
       )}
-    </>
+    </div>
+  );
+}
+
+function PlayerCard({ data, me }) {
+  const { t, locale } = useLang();
+  const mark = initials(data.name);
+  return (
+    <div className="pf-card">
+      <span className="pf-corner pf-corner-top" aria-hidden="true">{mark}<i>♠</i></span>
+      <span className="pf-corner pf-corner-bottom" aria-hidden="true">{mark}<i>♠</i></span>
+      <Avatar name={data.name} image={data.image} size={88} />
+      <h1 className="pf-name">{data.name}</h1>
+      <p className="pf-joined">
+        {t('Joined {date}', { date: formatDateTime(locale, data.joinedAt) })}
+        {data.isMe && me.profile.privateProfile && <><br />{t('Your profile is private')}</>}
+        {data.isMe && !me.profile.privateProfile && (
+          <><br /><a className="st-link" href={`/u/${data.id}`}>{t('Public view')}</a></>
+        )}
+      </p>
+      {data.balance !== null && (
+        <div className="pf-balance">
+          <span className="pf-balance-num">{data.balance.toLocaleString(locale)}</span>
+          <span className="pf-balance-label">{t('chips')}</span>
+        </div>
+      )}
+      <dl className="pf-card-stats">
+        <Stat label={t('Online hands')} value={data.online.hands} />
+        <Stat label={t('Online wins')} value={data.online.wins} />
+        {data.online.chips !== null && <Stat label={t('Online chips')} value={formatDelta(data.online.chips)} />}
+      </dl>
+    </div>
   );
 }
 
@@ -142,12 +164,12 @@ function tone(n) {
 function SessionList({ sessions }) {
   const { t } = useLang();
   if (!sessions.length) {
-    return <p className="st-muted">{t("No sessions yet. They show up here once you're linked to a player in one.")}</p>;
+    return <p className="st-lead">{t("No sessions yet. They show up here once you're linked to a player in one.")}</p>;
   }
   return (
     <>
-      <p className="st-small st-muted">{t('Only you can see these. Session games and chips stay inside each session.')}</p>
-      <ul className="st-list">
+      <p className="st-lead">{t('Only you can see these. Session games and chips stay inside each session.')}</p>
+      <ul className="pf-session-grid">
         {sessions.map((s) => <SessionGroup key={s.id} session={s} />)}
       </ul>
     </>
@@ -165,19 +187,20 @@ function SessionGroup({ session }) {
   const { stats } = session;
 
   return (
-    <li className="st-card pf-session">
+    <li className={`st-card pf-session ${open ? 'pf-session-open' : ''}`}>
       <button className="pf-session-head" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="pf-session-title">
           <span className="st-strong">{session.name}</span>
+          <span className="st-small st-muted">{session.players.join(', ')}</span>
           <span className="st-small st-muted">
             {session.lastPlayedAt
               ? t('Last played {date}', { date: formatDateTime(locale, session.lastPlayedAt) })
               : t('No games yet')}
-            {' · '}
-            {session.players.join(', ')}
           </span>
         </span>
-        <span className={`pf-caret ${open ? 'pf-caret-open' : ''}`} aria-hidden="true">›</span>
+        <svg className={`pf-caret ${open ? 'pf-caret-open' : ''}`} width="18" height="18" viewBox="0 0 12 12" aria-hidden="true">
+          <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
 
       <dl className="pf-session-stats">
@@ -191,7 +214,9 @@ function SessionGroup({ session }) {
         <div className="pf-session-body">
           {session.canOpen && <a className="st-link" href={`/scores/${session.id}`}>{t('Open session')}</a>}
           {shown.length === 0 && <p className="st-small st-muted">{t('No games recorded yet.')}</p>}
-          {shown.map((g) => <GameCard key={g.id} game={g} number={numbers[g.id]} />)}
+          <div className="pf-game-grid">
+            {shown.map((g) => <GameCard key={g.id} game={g} number={numbers[g.id]} />)}
+          </div>
           {undoneCount > 0 && (
             <button className="st-btn st-btn-ghost st-btn-sm pf-undone-toggle" onClick={() => setShowUndone(!showUndone)}>
               {showUndone ? t('Hide undone games') : t('Show undone games ({n})', { n: undoneCount })}
@@ -256,18 +281,17 @@ function GameCard({ game, number }) {
 
 function OnlineHands({ hands }) {
   const { t, locale } = useLang();
-  if (!hands.length) return <p className="st-muted">{t('No Quick Match hands yet.')}</p>;
+  if (!hands.length) return <p className="st-lead">{t('No Quick Match hands yet.')}</p>;
   return (
-    <ul className="st-list">
+    <ul className="pf-session-grid">
       {hands.map((h) => {
         const events = gameEvents(t, h.data);
         return (
           <li key={h.id} className="st-card st-game">
             <div className="st-game-head">
               <span className="st-strong">{t('Quick Match')}</span>
-              <span className="st-small st-muted">
-                {formatDateTime(locale, h.at, true)} · {t('{n} per point', { n: h.stake })}
-              </span>
+              <span className="st-badge">{t('{n} per point', { n: h.stake })}</span>
+              <span className="st-small st-muted">{formatDateTime(locale, h.at, true)}</span>
             </div>
             <table className="st-table pf-game-table">
               <thead>
@@ -303,7 +327,7 @@ function OnlineHands({ hands }) {
 
 function ChipHistory({ rows }) {
   const { t, locale } = useLang();
-  if (!rows?.length) return <p className="st-muted">{t('No chip movements yet.')}</p>;
+  if (!rows?.length) return <p className="st-lead">{t('No chip movements yet.')}</p>;
   return (
     <section className="st-card">
       <table className="st-table">

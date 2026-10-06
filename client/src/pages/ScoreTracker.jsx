@@ -5,7 +5,7 @@ import {
 import { api, getMe, signIn } from '../utils/api.js';
 import { cached, remember, queuedGames, setQueuedGames, newClientId } from '../utils/offline.js';
 import { useLang } from '../i18n/index.jsx';
-import { placeName, chopText, stuckLastText, rulesText } from '../i18n/describe.js';
+import { placeName, chopText, stuckLastText, rulesText, formatDateTime } from '../i18n/describe.js';
 import ConsentGate from './ConsentGate.jsx';
 import { PointsChart, HeadToHead } from './TrackerCharts.jsx';
 import './scores.css';
@@ -158,23 +158,28 @@ function SessionList({ onOpen }) {
   }, []);
 
   return (
-    <>
+    <div className="st-wide st-stack">
       <header className="st-header">
         <h1 className="st-title">{t('Score tracker')}</h1>
+        {!creating && (
+          <button className="st-btn st-btn-primary" onClick={() => setCreating(true)}>{t('New session')}</button>
+        )}
       </header>
 
-      {creating
-        ? <NewSessionForm onCancel={() => setCreating(false)} onCreated={(s) => onOpen(s.id)} />
-        : <button className="st-btn st-btn-primary st-btn-block" onClick={() => setCreating(true)}>{t('New session')}</button>}
+      {creating && (
+        <div className="st-narrow">
+          <NewSessionForm onCancel={() => setCreating(false)} onCreated={(s) => onOpen(s.id)} />
+        </div>
+      )}
 
       {error && <p className="st-error">{t(error)}</p>}
 
       <h2 className="st-h2">{t('Your sessions')}</h2>
       {sessions === null && !error && <p className="st-muted">{t('Loading...')}</p>}
       {sessions?.length === 0 && (
-        <p className="st-muted">{t('No sessions yet. Start one, or open an invite link from a session leader.')}</p>
+        <p className="st-lead">{t('No sessions yet. Start one, or open an invite link from a session leader.')}</p>
       )}
-      <ul className="st-list">
+      <ul className="st-session-grid">
         {sessions?.map((s) => (
           <li key={s.id}>
             <button className="st-card st-session-row" onClick={() => onOpen(s.id)}>
@@ -183,14 +188,16 @@ function SessionList({ onOpen }) {
                 {s.role === 'leader' && <span className="st-badge">{t('Leader')}</span>}
               </span>
               <span className="st-muted">{s.players.join(', ')}</span>
-              <span className="st-muted st-small">
-                {new Date(s.createdAt).toLocaleDateString(locale)} · {t(s.gameCount === 1 ? '{n} game' : '{n} games', { n: s.gameCount })}
+              <span className="st-muted st-small">{formatDateTime(locale, s.createdAt)}</span>
+              <span className="st-session-count">
+                {s.gameCount}
+                <span>{t(s.gameCount === 1 ? 'game' : 'games')}</span>
               </span>
             </button>
           </li>
         ))}
       </ul>
-    </>
+    </div>
   );
 }
 
@@ -469,9 +476,9 @@ function SessionView({ id, onBack }) {
   const showChips = session.chipRate > 0;
 
   return (
-    <>
+    <div className="st-wide st-stack">
+      <button className="st-btn st-btn-ghost" onClick={onBack}>{t('All sessions')}</button>
       <header className="st-header">
-        <button className="st-btn st-btn-ghost" onClick={onBack}>{t('Back')}</button>
         <h1 className="st-title st-title-sm">{session.name}</h1>
       </header>
       <p className="st-small st-muted">
@@ -491,75 +498,90 @@ function SessionView({ id, onBack }) {
       )}
       {error && <p className="st-error">{errorText}</p>}
 
-      <section className="st-card">
-        <table className="st-table">
-          <thead>
-            <tr>
-              <th />
-              <th className="st-left">{t('Player')}</th>
-              <th>{t('Pts')}</th>
-              <th>{t('Wins')}</th>
-              <th>{t('Last')}</th>
-              <th>{t('Avg')}</th>
-              {showChips && <th>{t('Chips')}</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {standings.map((p, i) => (
-              <tr key={p.name}>
-                <td className="st-muted">{i + 1}</td>
-                <td className="st-left">
-                  <span className="st-strong">{p.name}</span>
-                  <span className="st-small st-muted st-link-note">
-                    {links[p.name]?.isMe
-                      ? t('you')
-                      : links[p.name]?.userId
-                        ? <a className="st-link" href={`/u/${links[p.name].userId}`}>{links[p.name].userName}</a>
-                        : t('guest')}
-                  </span>
-                </td>
-                <td className={`st-strong ${p.total > 0 ? 'st-pos' : p.total < 0 ? 'st-neg' : ''}`}>
-                  {formatDelta(p.total)}
-                </td>
-                <td>{p.wins}</td>
-                <td>{p.last}</td>
-                <td>{p.avgPlace === null ? '-' : p.avgPlace.toFixed(1)}</td>
-                {showChips && (
-                  <td className={links[p.name]?.chips > 0 ? 'st-pos' : links[p.name]?.chips < 0 ? 'st-neg' : 'st-muted'}>
-                    {links[p.name]?.chips === null || links[p.name]?.chips === undefined ? '-' : formatDelta(links[p.name].chips)}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="st-small st-muted st-rules-line">
-          {rulesText(t, rules)}
-          {showChips ? ` · ${t('{n} chips per point', { n: session.chipRate })}` : ''}
-        </p>
-      </section>
+      <div className={`st-split ${isLeader ? 'st-split-two' : ''}`}>
+        <div className="st-stack">
+          <section className="st-card st-o-standings">
+            <table className="st-table">
+              <thead>
+                <tr>
+                  <th />
+                  <th className="st-left">{t('Player')}</th>
+                  <th>{t('Pts')}</th>
+                  <th>{t('Wins')}</th>
+                  <th>{t('Last')}</th>
+                  <th>{t('Avg')}</th>
+                  {showChips && <th>{t('Chips')}</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((p, i) => (
+                  <tr key={p.name}>
+                    <td className="st-muted">{i + 1}</td>
+                    <td className="st-left">
+                      <span className="st-strong">{p.name}</span>
+                      <span className="st-small st-muted st-link-note">
+                        {links[p.name]?.isMe
+                          ? t('you')
+                          : links[p.name]?.userId
+                            ? <a className="st-link" href={`/u/${links[p.name].userId}`}>{links[p.name].userName}</a>
+                            : t('guest')}
+                      </span>
+                    </td>
+                    <td className={`st-strong ${p.total > 0 ? 'st-pos' : p.total < 0 ? 'st-neg' : ''}`}>
+                      {formatDelta(p.total)}
+                    </td>
+                    <td>{p.wins}</td>
+                    <td>{p.last}</td>
+                    <td>{p.avgPlace === null ? '-' : p.avgPlace.toFixed(1)}</td>
+                    {showChips && (
+                      <td className={links[p.name]?.chips > 0 ? 'st-pos' : links[p.name]?.chips < 0 ? 'st-neg' : 'st-muted'}>
+                        {links[p.name]?.chips === null || links[p.name]?.chips === undefined ? '-' : formatDelta(links[p.name].chips)}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="st-small st-muted st-rules-line">
+              {rulesText(t, rules)}
+              {showChips ? ` · ${t('{n} chips per point', { n: session.chipRate })}` : ''}
+            </p>
+          </section>
 
-      {session.games.length >= 2 && <PointsChart session={session} />}
-      {session.games.length >= 2 && <HeadToHead session={session} />}
+          {session.games.length >= 2 && (
+            <div className="st-stack st-o-charts">
+              <PointsChart session={session} />
+              <HeadToHead session={session} />
+            </div>
+          )}
 
-      {isLeader && <InvitePanel code={session.inviteCode} />}
-      {isLeader && <RecordGame session={session} onRecord={recordGame} />}
-      {isLeader && !offline && <SettingsPanel session={serverSession} onSaved={setSession} />}
+          <div className="st-stack st-o-history">
+            <h2 className="st-h2">{t('History ({n})', { n: session.games.length })}</h2>
+            {session.games.length === 0 && <p className="st-lead">{t('No games recorded yet.')}</p>}
+            <ul className="st-list">
+              {session.games.map((g, i) => ({ g, n: i + 1 })).reverse().map(({ g, n }) => (
+                <GameRow key={g.id} game={g} number={n} session={session} onRemove={isLeader ? () => removeGame(g) : null} />
+              ))}
+            </ul>
+          </div>
+        </div>
 
-      <h2 className="st-h2">{t('History ({n})', { n: session.games.length })}</h2>
-      {session.games.length === 0 && <p className="st-muted">{t('No games recorded yet.')}</p>}
-      <ul className="st-list">
-        {session.games.map((g, i) => ({ g, n: i + 1 })).reverse().map(({ g, n }) => (
-          <GameRow key={g.id} game={g} number={n} session={session} onRemove={isLeader ? () => removeGame(g) : null} />
-        ))}
-      </ul>
-
-      {isLeader && !offline && (
-        <button className="st-btn st-btn-danger st-btn-block" onClick={deleteSession}>
-          {confirmDelete ? t('Tap again to delete this session') : t('Delete session')}
-        </button>
-      )}
-    </>
+        {isLeader && (
+          <aside className="st-stack st-side">
+            <div className="st-o-record"><RecordGame session={session} onRecord={recordGame} /></div>
+            <div className="st-o-invite"><InvitePanel code={session.inviteCode} /></div>
+            {!offline && (
+              <div className="st-stack st-o-settings">
+                <SettingsPanel session={serverSession} onSaved={setSession} />
+                <button className="st-btn st-btn-danger st-btn-block" onClick={deleteSession}>
+                  {confirmDelete ? t('Tap again to delete this session') : t('Delete session')}
+                </button>
+              </div>
+            )}
+          </aside>
+        )}
+      </div>
+    </div>
   );
 }
 

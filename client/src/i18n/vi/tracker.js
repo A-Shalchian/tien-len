@@ -99,4 +99,7 @@ export default {
   'Head to head': 'Đối đầu',
   'Games each player finished above the other.': 'Số ván mỗi người về trước người kia.',
   'vs {name}': 'gặp {name}',
+  'All sessions': 'Tất cả phiên',
+  game: 'ván',
+  games: 'ván',
 };

@@ -1,0 +1,17 @@
+name: Keep alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    if: vars.KEEP_ALIVE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping the site
+        env:
+          URL: ${{ vars.KEEP_ALIVE_URL }}
+        run: curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 5 "${URL%/}/healthz"

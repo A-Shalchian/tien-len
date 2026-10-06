@@ -29,6 +29,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(securityHeaders());
 app.use(cors({ origin: allowedOrigins() }));
+app.get('/healthz', (req, res) => res.json({ ok: true }));
 app.use(createSeo(clientDist));
 app.use(express.static(clientDist, { index: false }));
 app.use('/api/auth', authLimiter);

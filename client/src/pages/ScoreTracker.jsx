@@ -6,6 +6,7 @@ import {
 import { api, getMe, signIn, signOut } from '../utils/api.js';
 import { cached, remember, queuedGames, setQueuedGames, newClientId } from '../utils/offline.js';
 import ConsentGate from './ConsentGate.jsx';
+import { PointsChart, HeadToHead } from './TrackerCharts.jsx';
 import './scores.css';
 
 function parseRoute() {
@@ -538,6 +539,9 @@ function SessionView({ id, onBack }) {
           {showChips ? ` · ${session.chipRate} chips per point` : ''}
         </p>
       </section>
+
+      {session.games.length >= 2 && <PointsChart session={session} />}
+      {session.games.length >= 2 && <HeadToHead session={session} />}
 
       {isLeader && <InvitePanel code={session.inviteCode} />}
       {isLeader && <RecordGame session={session} onRecord={recordGame} />}

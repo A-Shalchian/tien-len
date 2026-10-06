@@ -635,3 +635,136 @@
   margin-left: 0;
   background: #2a2618;
 }
+
+.tc-card {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 0.8rem;
+  color: #ccc;
+}
+
+.tc-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tc-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.tc-series-1 { background: var(--series-1); }
+.tc-series-2 { background: var(--series-2); }
+.tc-series-3 { background: var(--series-3); }
+.tc-series-4 { background: var(--series-4); }
+
+.tc-plot {
+  position: relative;
+}
+
+.tc-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+}
+
+.tc-grid {
+  stroke: #333;
+  stroke-width: 1;
+}
+
+.tc-zero {
+  stroke: #555;
+  stroke-width: 1;
+}
+
+.tc-axis {
+  fill: #888;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-label {
+  fill: #ccc;
+  font-size: 14px;
+  paint-order: stroke;
+  stroke: #242424;
+  stroke-width: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.tc-stroke-1 { stroke: var(--series-1); }
+.tc-stroke-2 { stroke: var(--series-2); }
+.tc-stroke-3 { stroke: var(--series-3); }
+.tc-stroke-4 { stroke: var(--series-4); }
+
+.tc-crosshair {
+  stroke: #777;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.tc-dot {
+  stroke: #242424;
+  stroke-width: 2;
+}
+
+.tc-fill-1 { fill: var(--series-1); }
+.tc-fill-2 { fill: var(--series-2); }
+.tc-fill-3 { fill: var(--series-3); }
+.tc-fill-4 { fill: var(--series-4); }
+
+.tc-tooltip {
+  position: absolute;
+  top: 4px;
+  min-width: 110px;
+  padding: 6px 8px;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  background: #1a1a1a;
+  font-size: 0.72rem;
+  color: #ddd;
+  pointer-events: none;
+}
+
+.tc-tooltip-title {
+  margin-bottom: 4px;
+  color: #888;
+}
+
+.tc-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tc-tooltip-value {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-h2h th {
+  white-space: nowrap;
+}

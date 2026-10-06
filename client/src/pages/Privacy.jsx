@@ -7,7 +7,7 @@ export function LegalPage({ title, lead, children }) {
   const updated = new Date(LEGAL_UPDATED).toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
   return (
     <div className="lp">
-      <main className="lp-page">
+      <div className="lp-page">
         <nav className="lp-legal-nav">
           <a className="lp-inline-link" href="/privacy">{t('Privacy policy')}</a>
           <a className="lp-inline-link" href="/terms">{t('Terms of use')}</a>
@@ -16,7 +16,7 @@ export function LegalPage({ title, lead, children }) {
         <p className="lp-lead">{lead}</p>
         {children}
         <p className="lp-text lp-muted">{t('Last updated {date}.', { date: updated })}</p>
-      </main>
+      </div>
     </div>
   );
 }

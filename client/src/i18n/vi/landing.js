@@ -8,8 +8,10 @@ export default {
   '{n} chips': '{n} chip',
   'Made for our games with Vy and Thư.': 'Làm cho những ván bài với Vy và Thư.',
 
-  'Four players, thirteen cards each. Get rid of all your cards before everyone else.':
-    'Bốn người, mỗi người 13 lá. Ai đánh hết bài trước là thắng.',
+  '2 to 4 players, 13 cards each. Get rid of all your cards before everyone else.':
+    'Từ 2 đến 4 người, mỗi người 13 lá. Ai đánh hết bài trước là thắng.',
+  'These are the rules of tiến lên miền Nam, the southern version. In English it is often called Thirteen, or written Tien Len without the accents.':
+    'Đây là luật tiến lên miền Nam. Tiếng Anh thường gọi là Thirteen, hoặc viết không dấu là Tien Len.',
   'Card ranks from lowest to highest: {list}': 'Thứ tự lá bài từ nhỏ đến lớn: {list}',
   '3 is the lowest': '3 nhỏ nhất',
   '2 is the highest': 'Heo (2) lớn nhất',

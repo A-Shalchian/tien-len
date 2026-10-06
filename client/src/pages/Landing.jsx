@@ -253,7 +253,10 @@ function HowToPlay() {
     <section className="lp-section" id="how-to-play">
       <h2 className="lp-h2">{t('How to play')}</h2>
       <p className="lp-lead">
-        {t('Four players, thirteen cards each. Get rid of all your cards before everyone else.')}
+        {t('2 to 4 players, 13 cards each. Get rid of all your cards before everyone else.')}
+      </p>
+      <p className="lp-text">
+        {t('These are the rules of tiến lên miền Nam, the southern version. In English it is often called Thirteen, or written Tien Len without the accents.')}
       </p>
 
       <div className="lp-ladder" role="img" aria-label={t('Card ranks from lowest to highest: {list}', { list: RANKS.join(', ') })}>
@@ -385,11 +388,11 @@ export default function Landing() {
         </div>
       </header>
 
-      <main className="lp-body">
+      <div className="lp-body">
         <HowToPlay />
         <HouseRules />
         <Leaderboard />
-      </main>
+      </div>
 
       <footer className="lp-footer">
         {t('Made for our games with Vy and Thư.')} <a className="lp-inline-link" href="/privacy">{t('Privacy')}</a>{' '}

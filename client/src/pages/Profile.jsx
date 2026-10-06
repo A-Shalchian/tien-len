@@ -124,7 +124,7 @@ function PlayerCard({ data, me }) {
     <div className="pf-card">
       <span className="pf-corner pf-corner-top" aria-hidden="true">{mark}<i>♠</i></span>
       <span className="pf-corner pf-corner-bottom" aria-hidden="true">{mark}<i>♠</i></span>
-      <Avatar name={data.name} image={data.image} size={88} />
+      <Avatar name={data.name} image={data.image} size={72} />
       <h1 className="pf-name">{data.name}</h1>
       <p className="pf-joined">
         {t('Joined {date}', { date: formatDateTime(locale, data.joinedAt) })}

@@ -8,7 +8,7 @@ import { SLOW_DOWN } from './security.js';
 
 const EVENTS = [
   'watch-rooms', 'unwatch-rooms', 'create-room', 'join-room', 'start-game', 'play-cards', 'pass',
-  'new-hand', 'rejoin', 'find-match', 'cancel-match', 'emote', 'leave-room',
+  'new-hand', 'rejoin', 'find-match', 'cancel-match', 'emote', 'leave-room', 'resume',
 ];
 
 const JUNK = [
@@ -187,5 +187,56 @@ test('spam gets cut off: rooms, messages and connections', async () => {
 
   assert.deepEqual(errors, []);
   strict.close();
+  server.close();
+});
+
+test('a player who runs out of time gets skipped, then goes idle, then can come back', async () => {
+  const server = createServer();
+  const fast = new Server(server);
+  createGameServer(fast, {
+    getUser: async () => null,
+    loadPlayer: async () => null,
+    getBalance: async () => 0,
+    recordOnlineHand: async () => {},
+    onError: (err, where) => errors.push(`${where}: ${err.stack}`),
+    turnMs: 300,
+  });
+  await new Promise((resolve) => server.listen(0, resolve));
+  const socket = await client(null, `http://localhost:${server.address().port}`);
+
+  let me = null;
+  let idle = [];
+  let turnMsLeft = null;
+  const timeouts = [];
+  socket.on('game-start', (d) => { me = d.you; turnMsLeft = d.firstPlayer === d.you ? d.turnMsLeft : turnMsLeft; });
+  socket.on('game-state', (d) => { idle = d.idle; if (d.turn === me) turnMsLeft = d.turnMsLeft; });
+  socket.on('turn-timeout', (d) => { if (d.playerId === me) timeouts.push(d); });
+  socket.on('hand-over', () => socket.emit('new-hand'));
+
+  socket.emit('create-room', { nickname: 'Sleepy', fillWithBots: true });
+  await nextEvent(socket, 'room-created');
+  socket.emit('start-game');
+
+  const deadline = Date.now() + 30000;
+  while (timeouts.length < 2) {
+    assert.ok(Date.now() < deadline, 'never timed out twice');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.ok(turnMsLeft > 0 && turnMsLeft <= 300);
+  assert.equal(timeouts[0].idle, false);
+  assert.equal(timeouts[1].idle, true);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.ok(idle.includes(me));
+
+  socket.emit('resume');
+  const back = Date.now() + 10000;
+  while (idle.includes(me)) {
+    assert.ok(Date.now() < back, 'resume never cleared idle');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  assert.deepEqual(errors, []);
+  socket.disconnect();
+  fast.close();
   server.close();
 });

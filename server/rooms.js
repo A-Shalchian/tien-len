@@ -140,7 +140,7 @@ function getAway(room) {
 }
 
 function isAutoPlayed(room, playerId) {
-  return room.players.some((p) => p.id === playerId && (p.isBot || p.away));
+  return room.players.some((p) => p.id === playerId && (p.isBot || p.away || p.idle));
 }
 
 function activeHumans(room) {

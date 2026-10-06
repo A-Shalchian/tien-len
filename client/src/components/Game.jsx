@@ -104,6 +104,24 @@ function HandResult({ result, myId, waiting, onNext }) {
   );
 }
 
+const TURN_SECONDS = 25;
+
+function TurnClock({ deadline }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [deadline]);
+  const left = Math.max(0, Math.ceil((deadline - now) / 1000));
+  const share = Math.min(1, left / TURN_SECONDS);
+  return (
+    <span className={`turn-clock ${left <= 5 ? 'turn-clock-low' : ''}`} aria-label={`${left}s`}>
+      <span className="turn-clock-bar" style={{ transform: `scaleX(${share})` }} />
+      <span className="turn-clock-num">{left}s</span>
+    </span>
+  );
+}
+
 export default function Game({ socket, gameState, setGameState, nicknames, botFlags, myId, playerOrder, rejoinResult, onGameState, onGameStart }) {
   const { t } = useLang();
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -124,7 +142,8 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
   const opponents = playerOrder.filter(id => id !== myId);
   const isMyTurn = gameState.turn === myId;
   const finished = gameState.finished || [];
-  const awaySet = new Set(gameState.away || []);
+  const awaySet = new Set([...(gameState.away || []), ...(gameState.idle || [])]);
+  const iAmIdle = (gameState.idle || []).includes(myId);
   const myPlace = finished.indexOf(myId) + 1;
 
   const showToast = useCallback((render, ms = 2500) => {
@@ -225,6 +244,10 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       3500,
     );
     const onPlayerBack = ({ nickname }) => showToast((t) => t('{name} is back', { name: nickname }));
+    const onTurnTimeout = ({ playerId, nickname, action }) => showToast((t) => {
+      if (playerId !== myId) return t('{name} ran out of time', { name: nickname });
+      return action === 'pass' ? t("Time's up. You passed.") : t("Time's up. Your lowest card was played.");
+    }, 3000);
     const onWaiting = () => setWaitingNext(true);
 
     const onKicked = (data) => {
@@ -251,6 +274,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     socket.on('emote', onEmote);
     socket.on('player-away', onPlayerAway);
     socket.on('player-back', onPlayerBack);
+    socket.on('turn-timeout', onTurnTimeout);
     socket.on('waiting-for-opponent', onWaiting);
     socket.on('kicked-low-balance', onKicked);
     socket.on('game-over-insufficient', onGameOver);
@@ -265,6 +289,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       socket.off('emote', onEmote);
       socket.off('player-away', onPlayerAway);
       socket.off('player-back', onPlayerBack);
+      socket.off('turn-timeout', onTurnTimeout);
       socket.off('waiting-for-opponent', onWaiting);
       socket.off('kicked-low-balance', onKicked);
       socket.off('game-over-insufficient', onGameOver);
@@ -372,13 +397,21 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
           {myPlace
             ? t('You finished {place}', { place: placeName(t, myPlace) })
             : isMyTurn ? t('Your turn') : t("{name}'s turn", { name: turnNickname })}
+          {!myPlace && gameState.turnDeadline && <TurnClock deadline={gameState.turnDeadline} />}
         </div>
         <Table cards={gameState.table} animatePlay={animatePlay} />
       </div>
 
       <EmoteBar onSend={sendEmote} />
 
-      {isMyTurn && !myPlace && (
+      {iAmIdle && !myPlace && (
+        <div className="idle-banner" role="status">
+          <span>{t('You missed 2 turns, so a bot is playing for you.')}</span>
+          <button className="btn btn-primary" onClick={() => socket.emit('resume')}>{t("I'm back")}</button>
+        </div>
+      )}
+
+      {isMyTurn && !myPlace && !iAmIdle && (
         <div className="action-bar">
           <button
             className="btn btn-pass"

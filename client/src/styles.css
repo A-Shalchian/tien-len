@@ -1114,6 +1114,22 @@ body {
   cursor: default;
 }
 
+.emote-img {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.emote-btn .emote-img {
+  width: 34px;
+  height: 34px;
+}
+
+.emote-overlay .emote-img {
+  width: 112px;
+  height: 112px;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+}
+
 .hand-area {
   padding: 4px 8px 12px;
   flex-shrink: 0;
@@ -1896,4 +1912,54 @@ body {
     color: #fff;
     border-color: #666;
   }
+}
+
+.turn-clock {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85em;
+}
+
+.turn-clock-bar {
+  position: absolute;
+  inset: 0;
+  background: rgba(240, 192, 64, 0.28);
+  transform-origin: left center;
+  transition: transform 0.25s linear;
+}
+
+.turn-clock-num {
+  position: relative;
+}
+
+.turn-clock-low .turn-clock-bar {
+  background: rgba(255, 80, 64, 0.45);
+}
+
+.idle-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 10px 16px;
+  margin: 0 12px;
+  border-radius: 12px;
+  background: rgba(240, 192, 64, 0.12);
+  border: 1px solid rgba(240, 192, 64, 0.35);
+  color: #f3e6c4;
+  text-align: center;
+}
+
+.idle-banner .btn {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 8px 22px;
 }

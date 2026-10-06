@@ -13,6 +13,8 @@ import { renamePlayers } from '../client/src/utils/scoring.js';
 import { clientIp, SLOW_DOWN } from './security.js';
 
 export const MAX_MESSAGE_BYTES = 10000;
+export const TURN_MS = 25000;
+const IDLE_AFTER_TIMEOUTS = 2;
 export const DEFAULT_LIMITS = {
   events: 40,
   eventWindowMs: 5000,
@@ -63,6 +65,7 @@ export function createGameServer(io, deps) {
   const onError = deps.onError || ((err, where) => console.error(`Socket handler ${where} failed`, err));
   const savingHands = new Set();
   const limits = { ...DEFAULT_LIMITS, ...deps.limits };
+  const turnMs = deps.turnMs ?? TURN_MS;
   const connectionsByIp = new Map();
 
   function safely(where, fn) {
@@ -106,6 +109,7 @@ export function createGameServer(io, deps) {
     const room = closeRoom(code);
     if (!room) return false;
     clearTimeout(room.botTimer);
+    clearTimeout(room.turnTimer);
     for (const p of room.players) {
       if (!p.socketId) continue;
       io.sockets.sockets.get(p.socketId)?.leave(room.code);
@@ -167,6 +171,8 @@ export function createGameServer(io, deps) {
   }
 
   function broadcastHandOver(room, result) {
+    clearTimeout(room.turnTimer);
+    room.turnDeadline = null;
     if (room.ranked) saveOnlineHand(room, result);
     room.lastResult = {
       data: result.data,
@@ -198,6 +204,14 @@ export function createGameServer(io, deps) {
       players: game.players,
       stake: room.stake,
       mustPlay3S: mustPlay3S(game, p.id),
+      ...turnInfo(room),
+    };
+  }
+
+  function turnInfo(room) {
+    return {
+      turnMsLeft: room.turnDeadline ? Math.max(0, room.turnDeadline - Date.now()) : null,
+      idle: room.players.filter((p) => p.idle).map((p) => p.id),
     };
   }
 
@@ -210,17 +224,15 @@ export function createGameServer(io, deps) {
       nicknames: getNicknames(room),
       bots: getBotFlags(room),
       away: getAway(room),
+      ...turnInfo(room),
     };
   }
 
   function broadcastGameStart(room, deal) {
+    room.moves = (room.moves || 0) + 1;
+    if (!deal.result) scheduleNextTurn(room);
     emitToHumans(room, 'game-start', (p) => ({ ...startPayload(room, p), hand: deal.hands[p.id], balances: deal.balances }));
-
-    if (deal.result) {
-      broadcastHandOver(room, deal.result);
-      return;
-    }
-    scheduleBotIfNeeded(room);
+    if (deal.result) broadcastHandOver(room, deal.result);
   }
 
   function broadcastChop(room, chop) {
@@ -233,23 +245,63 @@ export function createGameServer(io, deps) {
   }
 
   function handleResult(room, result) {
+    room.moves = (room.moves || 0) + 1;
     if (result.chop) broadcastChop(room, result.chop);
     if (result.type === 'hand-over') {
       broadcastHandOver(room, result);
       return;
     }
+    scheduleNextTurn(room);
     broadcastState(room, result);
-    scheduleBotIfNeeded(room);
   }
 
-  function scheduleBotIfNeeded(room) {
-    if (!room.game || room.game.handOver) return;
-    const turn = room.game.turn;
-    if (!isAutoPlayed(room, turn)) return;
+  function scheduleNextTurn(room) {
+    const game = room.game;
+    if (!game || game.handOver) {
+      clearTimeout(room.turnTimer);
+      room.turnDeadline = null;
+      return;
+    }
+    const turn = game.turn;
+    const seat = room.players.find((p) => p.id === turn);
+    if (isAutoPlayed(room, turn)) {
+      clearTimeout(room.turnTimer);
+      room.turnDeadline = null;
+      clearTimeout(room.botTimer);
+      const delay = seat?.away || seat?.idle ? 700 : 800 + Math.random() * 1200;
+      room.botTimer = later(`bot turn in room ${room.code}`, () => executeBotTurn(room, turn), delay);
+      return;
+    }
     clearTimeout(room.botTimer);
-    const away = room.players.find((p) => p.id === turn)?.away;
-    const delay = away ? 700 : 800 + Math.random() * 1200;
-    room.botTimer = later(`bot turn in room ${room.code}`, () => executeBotTurn(room, turn), delay);
+    const key = `${turn}:${room.moves}`;
+    if (room.turnKey === key && room.turnDeadline) return;
+    clearTimeout(room.turnTimer);
+    room.turnKey = key;
+    room.turnDeadline = Date.now() + turnMs;
+    room.turnTimer = later(`turn timer in room ${room.code}`, () => timeOutTurn(room, turn), turnMs);
+  }
+
+  function timeOutTurn(room, playerId) {
+    const game = room.game;
+    if (!game || game.handOver || game.turn !== playerId) return;
+    const seat = room.players.find((p) => p.id === playerId);
+    if (!seat) return;
+    room.turnDeadline = null;
+    seat.timeouts = (seat.timeouts || 0) + 1;
+    if (seat.timeouts >= IDLE_AFTER_TIMEOUTS) seat.idle = true;
+    const action = game.table ? 'pass' : 'play';
+    const result = game.table ? pass(game, playerId) : playCards(game, playerId, [game.hands[playerId][0].id]);
+    emitToHumans(room, 'turn-timeout', { playerId, nickname: seat.nickname, action, idle: Boolean(seat.idle) });
+    if (result.error) {
+      executeBotTurn(room, playerId);
+      return;
+    }
+    handleResult(room, result);
+  }
+
+  function markActive(seat) {
+    seat.timeouts = 0;
+    seat.idle = false;
   }
 
   function botContext(game, playerId) {
@@ -296,8 +348,8 @@ export function createGameServer(io, deps) {
 
     if (out.away) {
       emitToHumans(room, 'player-away', { playerId: seat.id, nickname: seat.nickname, left });
+      scheduleNextTurn(room);
       if (room.game && !room.game.handOver) broadcastState(room, {});
-      scheduleBotIfNeeded(room);
       later(`abandon check in room ${room.code}`, () => {
         if (closeIfAbandoned(room)) broadcastRoomList();
       }, REJOIN_GRACE_MS + 1000);
@@ -424,6 +476,7 @@ export function createGameServer(io, deps) {
         socket.emit('invalid-play', { reason: result.error });
         return;
       }
+      markActive(seat);
       handleResult(room, result);
     });
 
@@ -437,7 +490,16 @@ export function createGameServer(io, deps) {
         socket.emit('invalid-play', { reason: result.error });
         return;
       }
+      markActive(seat);
       handleResult(room, result);
+    });
+
+    on(socket, 'resume', () => {
+      const found = seatFor(socket);
+      if (!found || !found.seat.idle) return;
+      markActive(found.seat);
+      scheduleNextTurn(found.room);
+      if (!found.room.game.handOver) broadcastState(found.room, {});
     });
 
     on(socket, 'new-hand', () => {
@@ -479,6 +541,7 @@ export function createGameServer(io, deps) {
       for (const p of humans(room)) {
         if (p.id !== seat.id) io.to(p.socketId).emit('player-back', { playerId: seat.id, nickname: seat.nickname });
       }
+      scheduleNextTurn(room);
       if (!room.game.handOver) broadcastState(room, {});
     });
 

@@ -32,6 +32,18 @@ export function setQueuedGames(sessionId, games) {
   write(`tl-queue:${sessionId}`, games);
 }
 
+export function clearPrivateData() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+    for (const key of keys) {
+      if (key?.startsWith('tl-cache:') || key?.startsWith('tl-queue:')) localStorage.removeItem(key);
+    }
+  } catch {
+    return;
+  }
+}
+
 export function newClientId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }

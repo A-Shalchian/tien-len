@@ -1,3 +1,5 @@
+import { clearPrivateData } from './offline.js';
+
 export async function api(path, options = {}) {
   let res;
   try {
@@ -16,8 +18,10 @@ export async function api(path, options = {}) {
   return data;
 }
 
-export function getMe() {
-  return api('/me');
+export async function getMe() {
+  const me = await api('/me');
+  if (!me.user) clearPrivateData();
+  return me;
 }
 
 export async function signIn(returnTo = window.location.pathname) {
@@ -30,5 +34,6 @@ export async function signIn(returnTo = window.location.pathname) {
 
 export async function signOut() {
   await api('/auth/sign-out', { method: 'POST', body: {} });
+  clearPrivateData();
   window.location.reload();
 }

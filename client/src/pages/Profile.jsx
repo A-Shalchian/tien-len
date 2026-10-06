@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api, getMe, signIn } from '../utils/api.js';
+import { clearPrivateData } from '../utils/offline.js';
 import { formatDelta } from '../utils/scoring.js';
 import { useLang } from '../i18n/index.jsx';
 import { formatDateTime, gameEvents, placeName } from '../i18n/describe.js';
@@ -405,6 +406,7 @@ function Settings({ me, onSaved }) {
     setError(null);
     try {
       await api('/me', { method: 'DELETE', body: { confirm } });
+      clearPrivateData();
       window.location.href = '/';
     } catch (err) {
       setError(err.message);

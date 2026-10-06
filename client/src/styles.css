@@ -1142,9 +1142,24 @@ body {
   image-rendering: pixelated;
 }
 
-.emote-btn .emote-img {
-  width: 34px;
-  height: 34px;
+.emote-btn .emote-img,
+.emote-toggle-btn .emote-img {
+  width: 28px;
+  height: 28px;
+}
+
+.emote-grid .emote-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 4px;
+}
+
+.emote-bar-container .emote-toggle-btn {
+  width: 44px;
+  height: 44px;
 }
 
 .emote-overlay .emote-img {

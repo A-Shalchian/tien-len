@@ -10,6 +10,7 @@ import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
 import { minBalance } from './game/payout.js';
 import { renamePlayers } from '../client/src/utils/scoring.js';
+import { EMOTE_IDS } from '../client/src/utils/emotes.js';
 import { clientIp, SLOW_DOWN } from './security.js';
 
 export const MAX_MESSAGE_BYTES = 10000;
@@ -603,7 +604,7 @@ export function createGameServer(io, deps) {
     on(socket, 'leave-room', () => handleLeave(socket, true));
 
     on(socket, 'emote', ({ emoteId }) => {
-      const id = text(emoteId, 16);
+      const id = EMOTE_IDS.includes(emoteId) ? emoteId : null;
       if (!id) return;
       const now = Date.now();
       if (now - (socket.data.lastEmote || 0) < EMOTE_COOLDOWN_MS) return;

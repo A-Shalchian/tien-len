@@ -154,6 +154,27 @@ test('an oversized message drops that connection and nothing else', async () => 
   await stillAnswers();
 });
 
+test('only real emotes reach the other players', async () => {
+  const host = await client();
+  const guest = await client();
+  host.emit('create-room', { nickname: 'Host' });
+  const { roomCode } = await nextEvent(host, 'room-created');
+  guest.emit('join-room', { roomCode, nickname: 'Guest' });
+  await nextEvent(host, 'player-joined');
+
+  const seen = [];
+  guest.on('emote', ({ emoteId }) => seen.push(emoteId));
+  host.emit('emote', { emoteId: '💀' });
+  host.emit('emote', { emoteId: 'not-an-emote' });
+  host.emit('emote', { emoteId: 'gg' });
+  host.emit('emote', { emoteId: 'chat' });
+  await new Promise((resolve) => setTimeout(resolve, 400));
+
+  assert.deepEqual(seen, ['gg']);
+  host.disconnect();
+  guest.disconnect();
+});
+
 test('spam gets cut off: rooms, messages and connections', async () => {
   const server = createServer();
   const strict = new Server(server);

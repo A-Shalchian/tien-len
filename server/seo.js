@@ -19,50 +19,60 @@ const PUBLIC_PAGES = {
   '/play': {
     game: true,
     en: {
+      name: 'Play online',
       title: `Play ${SITE} online | Free card game for 2 to 4 players`,
       description: `Start a ${SITE} room and send the link to friends, or join Quick Match. Free online card game for 2 to 4 players, with bots for empty seats. No download.`,
     },
     vi: {
+      name: 'Chơi online',
       title: `Chơi ${SITE} online | Game bài miễn phí cho 2 đến 4 người`,
       description: 'Tạo phòng rồi gửi link cho bạn bè, hoặc vào Ghép trận nhanh. Tiến lên miền Nam online miễn phí cho 2 đến 4 người, có máy vào chỗ trống. Không cần tải về.',
     },
   },
   '/scores': {
     en: {
+      name: 'Score tracker',
       title: `${SITE} score tracker | Keep score at the table`,
       description: `Keep score when you play ${SITE} at the table. Record each game, chops and penalties, and share a link so everyone sees the totals.`,
     },
     vi: {
+      name: 'Ghi điểm',
       title: `Ghi điểm ${SITE} | Tính điểm khi chơi ngoài đời`,
       description: 'Ghi điểm khi chơi tiến lên với bạn bè và gia đình. Lưu từng ván, chặt heo, thối heo, rồi gửi link để cả bàn cùng xem tổng điểm.',
     },
   },
   '/rules': {
     en: {
+      name: 'Rules',
       title: `How to play ${SITE} | Rules, chops and glossary`,
       description: `${SITE} rules in plain English: card ranks, every play you can make, chopping 2s with bombs, instant wins and a glossary of terms like heo, chặt and cóng.`,
     },
     vi: {
+      name: 'Luật chơi',
       title: `Luật chơi ${SITE} miền Nam | Cách chơi và thuật ngữ`,
       description: 'Luật tiến lên miền Nam đầy đủ: thứ tự lá bài, các bộ được đánh, chặt heo, tới trắng, thối heo, cóng và giải thích các thuật ngữ thường gặp.',
     },
   },
   '/privacy': {
     en: {
+      name: 'Privacy policy',
       title: `Privacy policy | ${SITE}`,
       description: `What ${SITE} stores about you, what other players can see, and how to download or delete your data.`,
     },
     vi: {
+      name: 'Chính sách quyền riêng tư',
       title: `Chính sách quyền riêng tư | ${SITE}`,
       description: `${SITE} lưu những gì về bạn, người khác thấy được gì, và cách tải về hoặc xóa dữ liệu của bạn.`,
     },
   },
   '/terms': {
     en: {
+      name: 'Terms of use',
       title: `Terms of use | ${SITE}`,
       description: `The terms for using ${SITE}. Covers accounts, chips with no money value, score sessions and acceptable use.`,
     },
     vi: {
+      name: 'Điều khoản sử dụng',
       title: `Điều khoản sử dụng | ${SITE}`,
       description: `Điều khoản khi dùng ${SITE}. Gồm tài khoản, chip không có giá trị tiền, phiên ghi điểm và quy tắc ứng xử.`,
     },
@@ -178,10 +188,25 @@ function structuredData(origin, lang) {
         inLanguage: ['en', 'vi'],
         isAccessibleForFree: true,
         offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
-        publisher: { '@id': `${url}#website` },
       },
     ],
   };
+}
+
+function breadcrumbs(page, origin, url) {
+  const home = page.lang === 'vi' ? `${origin}/vi` : `${origin}/`;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: SITE, item: home },
+      { '@type': 'ListItem', position: 2, name: page.name, item: url },
+    ],
+  };
+}
+
+function jsonLd(data) {
+  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
 }
 
 function headTags(page, origin, pathname) {
@@ -210,10 +235,8 @@ function headTags(page, origin, pathname) {
     `<meta property="og:image" content="${escapeHtml(origin + IMAGE)}" />`,
     `<meta name="twitter:image" content="${escapeHtml(origin + IMAGE)}" />`,
   );
-  if (page.home) {
-    const json = JSON.stringify(structuredData(origin, page.lang)).replace(/</g, '\u003c');
-    tags.push(`<script type="application/ld+json">${json}</script>`);
-  }
+  if (page.home) tags.push(jsonLd(structuredData(origin, page.lang)));
+  else if (page.name) tags.push(jsonLd(breadcrumbs(page, origin, url)));
   return tags.join('\n  ');
 }
 
@@ -235,8 +258,40 @@ function renderPage(template, page, origin, pathname) {
   return html;
 }
 
+const AI_CRAWLERS = [
+  'GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'Claude-User',
+  'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot-Extended',
+];
+
 function robotsTxt(origin) {
-  return `User-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: ${origin}/sitemap.xml\n`;
+  const ai = AI_CRAWLERS.map((bot) => `User-agent: ${bot}`).join('\n');
+  return `${ai}\nAllow: /\nDisallow: /admin\n\nUser-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: ${origin}/sitemap.xml\n`;
+}
+
+function llmsTxt(origin) {
+  const link = (name, p, note) => `- [${name}](${origin}${p})${note ? `: ${note}` : ''}`;
+  return [
+    `# ${SITE}`,
+    '',
+    `> Free online ${SITE} (Tien Len, also called Thirteen), the Vietnamese card game, for 2 to 4 players in the browser. It also has a score tracker for games played in person. The site is in English and Vietnamese.`,
+    '',
+    '## Pages',
+    '',
+    link('Home', '/', 'what the game is, a short how-to-play, our house scoring rules and the chip leaderboard'),
+    link('Rules', '/rules', 'full rules of tiến lên miền Nam with a glossary of Vietnamese terms'),
+    link('Play online', '/play', 'create or join a room, play Quick Match, or play against bots'),
+    link('Score tracker', '/scores', 'keep score for games played at the table'),
+    link('Privacy policy', '/privacy'),
+    link('Terms of use', '/terms'),
+    '',
+    '## Tiếng Việt',
+    '',
+    link('Trang chủ', '/vi'),
+    link('Luật chơi', '/vi/rules'),
+    link('Chơi online', '/vi/play'),
+    link('Ghi điểm', '/vi/scores'),
+    '',
+  ].join('\n');
 }
 
 function sitemapXml(origin) {
@@ -294,6 +349,9 @@ export function createSeo(clientDist, { origin, pagesDir } = {}) {
     const site = siteOrigin(req, origin);
     if (pathname === '/robots.txt') {
       return res.set('Cache-Control', 'public, max-age=3600').type('text/plain').send(robotsTxt(site));
+    }
+    if (pathname === '/llms.txt') {
+      return res.set('Cache-Control', 'public, max-age=3600').type('text/plain').send(llmsTxt(site));
     }
     if (pathname === '/sitemap.xml') {
       return res.set('Cache-Control', 'public, max-age=3600').type('application/xml').send(sitemapXml(site));

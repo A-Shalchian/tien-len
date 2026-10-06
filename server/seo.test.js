@@ -73,7 +73,7 @@ test('each public page has a unique title and a self canonical', async () => {
     assert.equal(res.status, 200, p);
     assert.equal(res.headers.get('x-robots-tag'), null, p);
     assert.ok(html.includes(`<link rel="canonical" href="${ORIGIN}${p}" />`), p);
-    assert.doesNotMatch(html, /ld\+json/, p);
+    assert.doesNotMatch(html, /VideoGame/, p);
     titles.add(html.match(/<title>(.*?)<\/title>/)[1]);
   }
   assert.equal(titles.size, 5);
@@ -151,6 +151,10 @@ test('robots.txt and sitemap.xml use the configured origin', async () => {
   assert.match(robotsText, /^User-agent: \*$/m);
   assert.match(robotsText, /^Disallow: \/admin$/m);
   assert.doesNotMatch(robotsText, /Disallow: \/api/);
+  for (const bot of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended']) {
+    assert.match(robotsText, new RegExp(`^User-agent: ${bot}$`, 'm'), bot);
+  }
+  assert.equal(robotsText.match(/^Disallow: \/admin$/gm).length, 2);
   assert.match(robotsText, /^Sitemap: https:\/\/tienlen\.example\/sitemap\.xml$/m);
 
   const sitemap = await get('/sitemap.xml');
@@ -200,6 +204,31 @@ test('vietnamese prefixes only exist for public pages', async () => {
   const slash = await get('/vi/');
   assert.equal(slash.status, 301);
   assert.equal(slash.headers.get('location'), '/vi');
+});
+
+test('llms.txt lists the main pages in both languages', async () => {
+  const res = await get('/llms.txt');
+  const text = await res.text();
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/plain/);
+  assert.match(text, /^# Tiến Lên$/m);
+  assert.match(text, /^> /m);
+  for (const p of ['/', '/rules', '/play', '/scores', '/vi', '/vi/rules']) {
+    assert.ok(text.includes(`](${ORIGIN}${p})`), p);
+  }
+});
+
+test('subpages carry breadcrumbs and the home page has no self publisher', async () => {
+  const ld = (html) => [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+  const [crumbs] = ld(await (await get('/vi/terms')).text());
+  assert.equal(crumbs['@type'], 'BreadcrumbList');
+  assert.deepEqual(crumbs.itemListElement.map((i) => [i.name, i.item]), [
+    ['Tiến Lên', `${ORIGIN}/vi`],
+    ['Điều khoản sử dụng', `${ORIGIN}/vi/terms`],
+  ]);
+  const [home] = ld(await (await get('/')).text());
+  assert.equal(home['@graph'][1].publisher, undefined);
+  assert.equal(ld(await (await get('/room/ABCD')).text()).length, 0);
 });
 
 test('a rebuilt index.html is picked up without a restart', async () => {

@@ -244,14 +244,29 @@ body {
 }
 
 .lang-toggle {
+  position: relative;
   display: inline-flex;
+  align-items: center;
   gap: 2px;
-  padding: 2px;
-  border: 1px solid #444;
-  border-radius: 999px;
+  min-height: 48px;
+  padding: 0 3px;
+  border: 0;
   background: transparent;
   font: 600 0.72rem/1 system-ui, sans-serif;
   cursor: pointer;
+}
+
+.lang-toggle::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 26px;
+  transform: translateY(-50%);
+  border: 1px solid #444;
+  border-radius: 999px;
+  pointer-events: none;
 }
 
 .lang-toggle span {
@@ -341,6 +356,9 @@ body {
 }
 
 .nav-brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
   font-family: 'Bricolage Grotesque', system-ui, sans-serif;
   font-weight: 800;
   font-variation-settings: 'wdth' 78, 'opsz' 96;
@@ -364,8 +382,10 @@ body {
 }
 
 .nav-link {
-  padding: 8px 0;
-  border-bottom: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  background: no-repeat left bottom 4px / 0 2px linear-gradient(var(--nav-accent), var(--nav-accent));
   color: var(--nav-text);
   font-size: 1rem;
   font-weight: 500;
@@ -379,10 +399,10 @@ body {
 
 .nav-on {
   color: var(--nav-strong);
-  border-bottom-color: var(--nav-accent);
+  background-size: 100% 2px;
 }
 
-.lang-toggle.nav-lang {
+.lang-toggle.nav-lang::before {
   border-color: var(--nav-panel-line);
 }
 
@@ -392,6 +412,7 @@ body {
 }
 
 .nav-signin {
+  min-height: 48px;
   padding: 9px 18px;
   border: 0;
   border-radius: 8px;
@@ -409,6 +430,8 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 48px;
+  min-height: 48px;
   padding: 5px 10px 5px 5px;
   border: 1px solid var(--nav-panel-line);
   border-radius: 999px;

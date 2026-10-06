@@ -100,3 +100,10 @@ create table if not exists admin_log (
 );
 
 create index if not exists admin_log_created_idx on admin_log (created_at desc);
+
+create table if not exists emote_reviews (
+  id text primary key,
+  status text not null check (status in ('approved', 'rejected', 'pending')),
+  updated_by text references "user"(id) on delete set null,
+  updated_at timestamptz not null default now()
+);

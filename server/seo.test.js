@@ -86,7 +86,7 @@ test('game pages keep zoom locked and use the dark theme color', async () => {
 });
 
 test('private pages are noindex with no canonical', async () => {
-  for (const p of ['/profile', '/u/abc_123', '/scores/abc123', '/scores/join/abc123', '/room/ABCD', '/admin']) {
+  for (const p of ['/profile', '/u/abc_123', '/scores/abc123', '/scores/join/abc123', '/room/ABCD', '/admin', '/admin/emotes']) {
     const res = await get(p);
     const html = await res.text();
     assert.equal(res.status, 200, p);

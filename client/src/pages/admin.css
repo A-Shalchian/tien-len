@@ -292,3 +292,118 @@
   padding: 6px 12px;
   font-size: 0.85rem;
 }
+
+.ad-review-link {
+  align-self: flex-start;
+}
+
+.er-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.er-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1.5px solid rgba(241, 230, 208, 0.25);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--st-cream-2);
+  font: 600 0.95rem var(--st-body);
+  cursor: pointer;
+}
+
+.er-filter-on {
+  background: var(--st-stock);
+  border-color: var(--st-stock);
+  color: var(--st-ink);
+}
+
+.er-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.er-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.er-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.er-art {
+  display: grid;
+  place-items: center;
+  height: 140px;
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 40%, #2f6b3a, #1d3f24);
+}
+
+.er-art img {
+  width: 112px;
+  height: 112px;
+  image-rendering: pixelated;
+}
+
+.er-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 72px;
+}
+
+.er-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.er-status {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.er-status-pending {
+  background: rgba(216, 164, 74, 0.25);
+  color: var(--st-gold-ink);
+}
+
+.er-status-approved {
+  background: rgba(31, 111, 69, 0.15);
+  color: var(--st-pos);
+}
+
+.er-status-rejected {
+  background: rgba(179, 38, 30, 0.12);
+  color: var(--st-neg);
+}
+
+.er-rejected .er-art {
+  opacity: 0.45;
+}
+
+.er-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.er-actions .st-btn {
+  flex: 1;
+  min-height: 44px;
+}

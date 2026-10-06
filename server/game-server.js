@@ -10,7 +10,7 @@ import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
 import { minBalance } from './game/payout.js';
 import { renamePlayers } from '../client/src/utils/scoring.js';
-import { EMOTE_IDS } from '../client/src/utils/emotes.js';
+import { CORE_EMOTE_IDS } from '../client/src/utils/emotes.js';
 import { clientIp, SLOW_DOWN } from './security.js';
 
 export const MAX_MESSAGE_BYTES = 10000;
@@ -67,6 +67,7 @@ export function createGameServer(io, deps) {
   const savingHands = new Set();
   const limits = { ...DEFAULT_LIMITS, ...deps.limits };
   const turnMs = deps.turnMs ?? TURN_MS;
+  const isEmoteEnabled = deps.isEmoteEnabled || ((id) => CORE_EMOTE_IDS.includes(id));
   const connectionsByIp = new Map();
 
   function safely(where, fn) {
@@ -604,7 +605,7 @@ export function createGameServer(io, deps) {
     on(socket, 'leave-room', () => handleLeave(socket, true));
 
     on(socket, 'emote', ({ emoteId }) => {
-      const id = EMOTE_IDS.includes(emoteId) ? emoteId : null;
+      const id = typeof emoteId === 'string' && isEmoteEnabled(emoteId) ? emoteId : null;
       if (!id) return;
       const now = Date.now();
       if (now - (socket.data.lastEmote || 0) < EMOTE_COOLDOWN_MS) return;

@@ -95,6 +95,7 @@ const PRIVATE_PAGES = [
   { match: /^\/profile$/, title: `Your profile | ${SITE}` },
   { match: /^\/u\/[A-Za-z0-9_-]+$/, title: `Player profile | ${SITE}` },
   { match: /^\/admin$/, title: `Admin | ${SITE}` },
+  { match: /^\/admin\/emotes$/, title: `Emote review | ${SITE}` },
 ];
 
 const NOT_FOUND = {
@@ -104,7 +105,7 @@ const NOT_FOUND = {
 
 const PRIVATE_PATHS = [
   /^\/profile$/,
-  /^\/admin$/,
+  /^\/admin(\/|$)/,
   /^\/u\//,
   /^\/room\//,
   /^\/scores\/./,

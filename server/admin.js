@@ -145,7 +145,7 @@ async function searchUsers(query) {
   }));
 }
 
-export function createAdminRouter({ live, closeRoom }) {
+export function createAdminRouter({ live, closeRoom, emotes }) {
   const router = express.Router();
 
   router.use((req, res, next) => {
@@ -200,6 +200,21 @@ export function createAdminRouter({ live, closeRoom }) {
     if (!closeRoom(code)) return res.status(404).json({ error: 'That room is already closed.' });
     await logAction(pool, req.admin, 'close-room', code, null);
     res.json({ ok: true });
+  }));
+
+  router.get('/emotes', (req, res) => {
+    res.json(emotes.list());
+  });
+
+  router.post('/emotes/:id', handle(async (req, res) => {
+    const status = req.body?.status;
+    const saved = await transaction(async (db) => {
+      const ok = await emotes.setStatus(req.params.id, status, req.admin.id, db);
+      if (ok) await logAction(db, req.admin, 'emote', req.params.id, { status });
+      return ok;
+    });
+    if (!saved) return res.status(400).json({ error: 'That emote or status does not exist.' });
+    res.json(emotes.list().find((e) => e.id === req.params.id));
   }));
 
   router.use((req, res) => res.status(404).json({ error: 'Not found' }));

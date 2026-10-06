@@ -155,6 +155,8 @@ function Dashboard({ data, error, onRefresh }) {
         </section>
       </div>
 
+      <a className="st-btn st-btn-primary ad-review-link" href="/admin/emotes">{t('Review emotes')}</a>
+
       <UserSearch />
 
       <section className="st-stack">
@@ -174,7 +176,9 @@ function Dashboard({ data, error, onRefresh }) {
                           name: a.targetName || t('a deleted account'),
                           balance: n(a.details.balance),
                         })
-                        : t('Closed room {code}', { code: a.target })}
+                        : a.action === 'emote'
+                          ? t('Marked emote {id} as {status}', { id: a.target, status: a.details?.status })
+                          : t('Closed room {code}', { code: a.target })}
                     </td>
                     <td className="ad-email">{a.by}</td>
                   </tr>

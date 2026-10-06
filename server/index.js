@@ -9,6 +9,8 @@ import { createAdminRouter } from './admin.js';
 import { auth, getUserFromHeaders, publicName } from './auth.js';
 import { getBalance, recordOnlineHand } from './chips.js';
 import { createGameServer, MAX_MESSAGE_BYTES } from './game-server.js';
+import { createEmoteStore } from './emotes.js';
+import { pool } from './db.js';
 import {
   securityHeaders, allowedOrigins, isAllowedOrigin, authLimiter, inviteLimiter, apiLimiter,
 } from './security.js';
@@ -53,12 +55,21 @@ async function loadPlayer(userId) {
   return { userId: profile.id, name: publicName(profile.displayName, profile.googleName), termsAccepted: !!profile.termsAcceptedAt };
 }
 
-const game = createGameServer(io, { getUser: getUserFromHeaders, loadPlayer, getBalance, recordOnlineHand });
+const emotes = createEmoteStore(pool);
+const game = createGameServer(io, {
+  getUser: getUserFromHeaders,
+  loadPlayer,
+  getBalance,
+  recordOnlineHand,
+  isEmoteEnabled: (id) => emotes.isEnabled(id),
+});
 
 app.use('/api/admin', createAdminRouter({
   live: game.live,
   closeRoom: (code) => game.closeRoomFor(code, 'An admin closed this room.'),
+  emotes,
 }));
+app.get('/api/emotes', (req, res) => res.json({ enabled: emotes.enabledIds() }));
 app.use('/api', profileRouter);
 app.use('/api', scoresRouter);
 
@@ -68,6 +79,7 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 await migrate();
+await emotes.load();
 httpServer.on('error', (err) => {
   console.error('Server could not start', err);
   process.exit(1);

@@ -1,5 +1,5 @@
-const CACHE = 'tienlen-v1';
-const SHELL = '/index.html';
+const CACHE = 'tienlen-v2';
+const SHELL = '/';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -24,8 +24,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(SHELL, copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(SHELL, copy));
+          }
           return response;
         })
         .catch(() => caches.match(SHELL)),

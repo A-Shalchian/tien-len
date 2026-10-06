@@ -1,3 +1,5 @@
+import { randomInt } from 'crypto';
+
 const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
 const SUITS = ['S', 'C', 'D', 'H'];
 
@@ -14,7 +16,7 @@ function createDeck() {
 function shuffle(deck) {
   const a = [...deck];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = randomInt(i + 1);
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;

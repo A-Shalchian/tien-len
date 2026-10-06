@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { identifyCombo, canBeat } from './validator.js';
 import { createGame, setupHand, playCards, pass, mustPlay3S } from './engine.js';
 import { settleChips } from './payout.js';
+import { createDeck, shuffle } from './deck.js';
 
 const card = (id) => ({ rank: id.slice(0, -1), suit: id.slice(-1), id });
 const cards = (ids) => ids.split(' ').map(card);
@@ -163,4 +164,15 @@ test('bots finish hundreds of random hands with zero-sum chips', async () => {
       assert.equal(ids.reduce((sum, id) => sum + g.balances[id], 0), before);
     }
   }
+});
+
+test('shuffle keeps all 52 cards and changes the order', () => {
+  const deck = createDeck();
+  const orders = new Set();
+  for (let i = 0; i < 5; i++) {
+    const shuffled = shuffle(deck);
+    assert.deepEqual(shuffled.map((c) => c.id).sort(), deck.map((c) => c.id).sort());
+    orders.add(shuffled.map((c) => c.id).join());
+  }
+  assert.ok(orders.size > 1);
 });

@@ -30,6 +30,9 @@ create table if not exists games (
   session_id text not null references tracker_sessions(id) on delete cascade,
   data jsonb not null,
   rules jsonb not null,
+  chip_rate integer not null default 0,
+  recorded_by text,
+  undone_by text,
   created_at timestamptz not null default now(),
   undone_at timestamptz
 );
@@ -40,12 +43,25 @@ create table if not exists chip_ledger (
   id bigserial primary key,
   user_id text not null references "user"(id),
   amount integer not null,
-  reason text not null check (reason in ('signup', 'daily', 'game', 'undo', 'admin')),
+  reason text not null,
   session_id text,
   game_id text,
   day date,
   created_at timestamptz not null default now()
 );
 
+alter table chip_ledger drop constraint if exists chip_ledger_reason_check;
+alter table chip_ledger add constraint chip_ledger_reason_check
+  check (reason in ('signup', 'daily', 'game', 'undo', 'admin', 'online'));
+
 create index if not exists chip_ledger_user_idx on chip_ledger (user_id);
 create unique index if not exists chip_ledger_daily_once on chip_ledger (user_id, day) where reason = 'daily';
+
+create table if not exists profiles (
+  user_id text primary key references "user"(id) on delete cascade,
+  display_name text,
+  hide_avatar boolean not null default false,
+  hide_from_leaderboard boolean not null default false,
+  private_profile boolean not null default false,
+  terms_accepted_at timestamptz
+);

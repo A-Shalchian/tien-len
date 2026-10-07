@@ -24,6 +24,7 @@ export default class ErrorBoundary extends Component {
   }
 
   render() {
-    return this.state.failed ? <Fallback /> : this.props.children;
+    if (!this.state.failed) return this.props.children;
+    return this.props.fallback === undefined ? <Fallback /> : this.props.fallback;
   }
 }

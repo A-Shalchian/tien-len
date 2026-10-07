@@ -39,7 +39,9 @@ export default function App({ pathname = window.location.pathname }) {
   const known = !prefixed || isPublicPath(path);
   return (
     <div className="app-shell">
-      <NavBar path={path} theme={DARK_PAGES.includes(path) || path.startsWith('/room/') ? 'dark' : 'lacquer'} />
+      <ErrorBoundary fallback={<nav className="nav"><a className="nav-brand" href="/">Tiến Lên</a></nav>}>
+        <NavBar path={path} theme={DARK_PAGES.includes(path) || path.startsWith('/room/') ? 'dark' : 'lacquer'} />
+      </ErrorBoundary>
       <main className="app-main">
         <ErrorBoundary>
           <Suspense fallback={null}>

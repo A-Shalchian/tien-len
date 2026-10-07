@@ -393,12 +393,11 @@ router.get('/leaderboard', handle(async (req, res) => {
     `select u.id, coalesce(pr.display_name, u.name) as name, pr.display_name, u.name as google_name,
             case when pr.hide_avatar then null else u.image end as image,
             coalesce(pr.private_profile, false) as private_profile,
-            coalesce(sum(l.amount), 0)::int as balance
+            coalesce(b.balance, 0)::int as balance
      from "user" u
-     left join profiles pr on pr.user_id = u.id
-     left join chip_ledger l on l.user_id = u.id
+     join profiles pr on pr.user_id = u.id
+     left join user_balances b on b.user_id = u.id
      where pr.terms_accepted_at is not null and not pr.hide_from_leaderboard
-     group by u.id, pr.display_name, pr.hide_avatar, pr.private_profile
      order by balance desc, name
      limit 10`,
   );

@@ -107,3 +107,36 @@ create table if not exists emote_reviews (
   updated_by text references "user"(id) on delete set null,
   updated_at timestamptz not null default now()
 );
+
+create table if not exists user_balances (
+  user_id text primary key references "user"(id) on delete cascade,
+  balance integer not null default 0
+);
+
+create or replace function apply_chip_ledger() returns trigger language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into user_balances (user_id, balance) values (new.user_id, new.amount)
+    on conflict (user_id) do update set balance = user_balances.balance + excluded.balance;
+    return new;
+  end if;
+  update user_balances set balance = balance - old.amount where user_id = old.user_id;
+  return old;
+end;
+$$;
+
+lock table chip_ledger in share row exclusive mode;
+
+do $$
+begin
+  if not exists (select 1 from pg_trigger where tgname = 'chip_ledger_balance') then
+    delete from user_balances;
+    insert into user_balances (user_id, balance)
+      select user_id, sum(amount)::int from chip_ledger group by user_id;
+  end if;
+end;
+$$;
+
+create or replace trigger chip_ledger_balance
+  after insert or delete on chip_ledger
+  for each row execute function apply_chip_ledger();

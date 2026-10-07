@@ -49,7 +49,7 @@ async function overview() {
        group by d order by d`,
     ),
     pool.query(
-      `select coalesce(sum(amount), 0)::bigint as circulation,
+      `select (select coalesce(sum(balance), 0) from user_balances)::bigint as circulation,
               count(*) filter (where reason = 'daily' and day = (now() at time zone 'utc')::date)::int as top_ups_today
        from chip_ledger`,
     ),
@@ -59,12 +59,11 @@ async function overview() {
        from chip_ledger group by reason order by reason`,
     ),
     pool.query(
-      `select u.id, coalesce(pr.display_name, u.name) as name, sum(l.amount)::int as balance
-       from chip_ledger l
-       join "user" u on u.id = l.user_id
+      `select u.id, coalesce(pr.display_name, u.name) as name, b.balance
+       from user_balances b
+       join "user" u on u.id = b.user_id
        left join profiles pr on pr.user_id = u.id
-       group by u.id, pr.display_name, u.name
-       order by balance desc limit 10`,
+       order by b.balance desc limit 10`,
     ),
     pool.query(
       `select count(*)::int as total,
@@ -125,7 +124,7 @@ async function searchUsers(query) {
   const { rows } = await pool.query(
     `select u.id, coalesce(pr.display_name, u.name) as name, u.email, u."createdAt" as joined_at,
             (select max(s."updatedAt") from "session" s where s."userId" = u.id) as last_seen,
-            (select coalesce(sum(l.amount), 0) from chip_ledger l where l.user_id = u.id)::int as balance,
+            coalesce((select b.balance from user_balances b where b.user_id = u.id), 0)::int as balance,
             (select count(*) from online_hand_players h where h.user_id = u.id)::int as hands
      from "user" u
      left join profiles pr on pr.user_id = u.id

@@ -218,7 +218,7 @@ test('llms.txt lists the main pages in both languages', async () => {
   }
 });
 
-test('subpages carry breadcrumbs and the home page has no self publisher', async () => {
+test('subpages carry breadcrumbs and the home page names an organization as publisher', async () => {
   const ld = (html) => [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
   const [crumbs] = ld(await (await get('/vi/terms')).text());
   assert.equal(crumbs['@type'], 'BreadcrumbList');
@@ -227,7 +227,11 @@ test('subpages carry breadcrumbs and the home page has no self publisher', async
     ['Điều khoản sử dụng', `${ORIGIN}/vi/terms`],
   ]);
   const [home] = ld(await (await get('/')).text());
-  assert.equal(home['@graph'][1].publisher, undefined);
+  const byType = Object.fromEntries(home['@graph'].map((node) => [node['@type'], node]));
+  assert.equal(byType.Organization['@id'], `${ORIGIN}/#organization`);
+  assert.equal(byType.Organization.logo.url, `${ORIGIN}/icon-512.png`);
+  assert.deepEqual(byType.WebSite.publisher, { '@id': `${ORIGIN}/#organization` });
+  assert.deepEqual(byType.VideoGame.publisher, { '@id': `${ORIGIN}/#organization` });
   assert.equal(ld(await (await get('/room/ABCD')).text()).length, 0);
 });
 

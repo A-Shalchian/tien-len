@@ -165,12 +165,20 @@ function structuredData(origin, lang) {
     '@context': 'https://schema.org',
     '@graph': [
       {
+        '@type': 'Organization',
+        '@id': `${url}#organization`,
+        name: SITE,
+        url,
+        logo: { '@type': 'ImageObject', url: `${origin}/icon-512.png`, width: 512, height: 512 },
+      },
+      {
         '@type': 'WebSite',
         '@id': `${url}#website`,
         name: SITE,
         alternateName: ['Tien Len', 'Thirteen'],
         url,
         inLanguage: ['en', 'vi'],
+        publisher: { '@id': `${url}#organization` },
       },
       {
         '@type': 'VideoGame',
@@ -189,6 +197,7 @@ function structuredData(origin, lang) {
         inLanguage: ['en', 'vi'],
         isAccessibleForFree: true,
         offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
+        publisher: { '@id': `${url}#organization` },
       },
     ],
   };

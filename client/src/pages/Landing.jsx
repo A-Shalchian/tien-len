@@ -253,10 +253,10 @@ function HowToPlay() {
     <section className="lp-section" id="how-to-play">
       <h2 className="lp-h2">{t('How to play')}</h2>
       <p className="lp-lead">
-        {t('2 to 4 players, 13 cards each. Get rid of all your cards before everyone else.')}
+        {t('Tiến Lên is a Vietnamese card game for 2 to 4 players. Everyone gets 13 cards, and the first player to play them all wins.')}
       </p>
       <p className="lp-text">
-        {t('These are the rules of tiến lên miền Nam, the southern version. In English it is often called Thirteen, or written Tien Len without the accents.')}
+        {t('This site uses tiến lên miền Nam, the southern rules. In English the game is often called Thirteen, or written Tien Len without the accents.')}
       </p>
 
       <div className="lp-ladder" role="img" aria-label={t('Card ranks from lowest to highest: {list}', { list: RANKS.join(', ') })}>

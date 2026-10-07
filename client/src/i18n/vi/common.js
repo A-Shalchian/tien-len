@@ -6,6 +6,7 @@ export default {
   "This page doesn't exist. The link may be old or mistyped.": 'Trang này không tồn tại. Có thể đường dẫn đã cũ hoặc bị gõ sai.',
   'Go to the home page': 'Về trang chủ',
   'Change language': 'Đổi ngôn ngữ',
+  Language: 'Ngôn ngữ',
   Home: 'Trang chủ',
   'Score tracker': 'Ghi điểm',
   Profile: 'Hồ sơ',

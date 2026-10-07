@@ -77,6 +77,10 @@ function UserMenu({ me }) {
             <a key={item.href} role="menuitem" className="nav-menu-item" href={item.href}>{t(item.label)}</a>
           ))}
           {me.isAdmin && <a role="menuitem" className="nav-menu-item" href="/admin">{t('Admin')}</a>}
+          <div className="nav-menu-lang">
+            <span>{t('Language')}</span>
+            <LanguageToggle className="nav-lang" />
+          </div>
           <button type="button" role="menuitem" className="nav-menu-item nav-menu-signout" onClick={signOut}>
             {t('Sign out')}
           </button>
@@ -109,7 +113,7 @@ export default function NavBar({ path, theme = 'dark' }) {
         ))}
       </div>
       <div className="nav-right">
-        <LanguageToggle className="nav-lang" />
+        {!me?.user && <LanguageToggle className="nav-lang" />}
         {me?.user && <UserMenu me={me} />}
         {me && !me.user && (
           <button type="button" className="nav-signin" onClick={() => signIn()}>{t('Sign in')}</button>

@@ -253,6 +253,7 @@ body {
   border: 0;
   background: transparent;
   font: 600 0.72rem/1 system-ui, sans-serif;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -540,6 +541,16 @@ body {
 .nav-menu-item:focus-visible {
   background: rgba(255, 255, 255, 0.07);
   outline: none;
+}
+
+.nav-menu-lang {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px 0 12px;
+  color: var(--nav-strong);
+  font: 500 0.95rem system-ui, sans-serif;
 }
 
 .nav-menu-signout {

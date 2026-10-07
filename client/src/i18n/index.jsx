@@ -42,6 +42,7 @@ export function translate(lang, text, vars) {
 
 export function LanguageProvider({ pathname = window.location.pathname, children }) {
   const [lang, setLangState] = useState(() => initialLang(pathname));
+  const { path } = splitPath(pathname);
 
   const setLang = useCallback((next) => {
     saveLang(next);
@@ -68,7 +69,8 @@ export function LanguageProvider({ pathname = window.location.pathname, children
     locale: lang === 'vi' ? 'vi-VN' : 'en-US',
     t: (text, vars) => translate(lang, text, vars),
     href: (target) => localePath(target, lang),
-  }), [lang, setLang]);
+    path,
+  }), [lang, setLang, path]);
 
   return <LangContext.Provider value={value}>{children}</LangContext.Provider>;
 }

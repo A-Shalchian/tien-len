@@ -4,6 +4,7 @@ services:
     runtime: node
     buildCommand: cd server && npm install && cd ../client && npm install && npm run build
     startCommand: cd server && node index.js
+    maxShutdownDelaySeconds: 300
     envVars:
       - key: NODE_ENV
         value: production

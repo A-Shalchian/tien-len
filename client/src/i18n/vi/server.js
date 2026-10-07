@@ -3,6 +3,9 @@ export default {
   "You're offline. Check your connection.": 'Bạn đang mất mạng. Kiểm tra kết nối nhé.',
   'Request failed': 'Yêu cầu không thành công',
   'Too many requests. Try again in a minute.': 'Bạn thao tác quá nhanh. Thử lại sau một phút nhé.',
+  'The server is updating. Try again in a minute.': 'Máy chủ đang cập nhật. Thử lại sau một phút nhé.',
+  'The server is updating. Start a new game in a minute.': 'Máy chủ đang cập nhật. Một phút nữa hãy bắt đầu ván mới nhé.',
+  'The server is updating. This hand will finish, then the table closes.': 'Máy chủ đang cập nhật. Ván này sẽ chơi xong rồi bàn sẽ đóng.',
   'Not found': 'Không tìm thấy',
 
   'Sign in with Google to continue.': 'Đăng nhập bằng Google để tiếp tục.',

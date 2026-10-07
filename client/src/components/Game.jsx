@@ -100,8 +100,21 @@ function HandResult({ result, myId, waiting, onNext }) {
       <button className="btn btn-primary" onClick={onNext} disabled={waiting}>
         {waiting ? t('Waiting...') : t('Next Hand')}
       </button>
+      {result.nextAt && <NextHandClock deadline={result.nextAt} />}
     </div>
   );
+}
+
+function NextHandClock({ deadline }) {
+  const { t } = useLang();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [deadline]);
+  const left = Math.max(0, Math.ceil((deadline - now) / 1000));
+  if (left === 0) return null;
+  return <p className="next-hand-clock">{t('Next hand starts in {n}s', { n: left })}</p>;
 }
 
 const TURN_SECONDS = 25;
@@ -217,7 +230,7 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     };
 
     const onHandOver = (data) => {
-      setHandOver(data);
+      setHandOver({ ...data, nextAt: data.nextHandMs ? Date.now() + data.nextHandMs : null });
       setSelectedIds(new Set());
       prevFinishedRef.current = 0;
       if ((data.data.instantWin || data.data.order[0]) === myId) {
@@ -249,6 +262,8 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       return action === 'pass' ? t("Time's up. You passed.") : t("Time's up. Your lowest card was played.");
     }, 3000);
     const onWaiting = () => setWaitingNext(true);
+    const onServerUpdate = ({ reason }) => showToast((t) => t(reason), 6000);
+    const onNextHandTimer = ({ nextHandMs }) => setHandOver((h) => (h ? { ...h, nextAt: Date.now() + nextHandMs } : h));
 
     const onKicked = (data) => {
       setKickedInfo(data);
@@ -276,6 +291,8 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
     socket.on('player-back', onPlayerBack);
     socket.on('turn-timeout', onTurnTimeout);
     socket.on('waiting-for-opponent', onWaiting);
+    socket.on('server-update', onServerUpdate);
+    socket.on('next-hand-timer', onNextHandTimer);
     socket.on('kicked-low-balance', onKicked);
     socket.on('game-over-insufficient', onGameOver);
     socket.on('player-kicked', onPlayerKicked);
@@ -291,6 +308,8 @@ export default function Game({ socket, gameState, setGameState, nicknames, botFl
       socket.off('player-back', onPlayerBack);
       socket.off('turn-timeout', onTurnTimeout);
       socket.off('waiting-for-opponent', onWaiting);
+    socket.off('server-update', onServerUpdate);
+    socket.off('next-hand-timer', onNextHandTimer);
       socket.off('kicked-low-balance', onKicked);
       socket.off('game-over-insufficient', onGameOver);
       socket.off('player-kicked', onPlayerKicked);

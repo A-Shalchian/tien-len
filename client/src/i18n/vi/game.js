@@ -85,6 +85,7 @@ export default {
   "Time's up. Your lowest card was played.": 'Hết giờ. Lá nhỏ nhất của bạn đã được đánh.',
   'You missed 2 turns, so a bot is playing for you.': 'Bạn bỏ lỡ 2 lượt nên máy đang chơi thay bạn.',
   "I'm back": 'Tôi quay lại rồi',
+  'Next hand starts in {n}s': 'Ván sau bắt đầu sau {n} giây',
   Emotes: 'Biểu cảm',
   'Close emotes': 'Đóng biểu cảm',
   Chop: 'Chặt heo',

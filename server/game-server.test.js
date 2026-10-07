@@ -255,3 +255,63 @@ test('a player who runs out of time gets skipped, then goes idle, then can come 
   fast.close();
   server.close();
 });
+
+async function fastServer(extra = {}) {
+  const server = createServer();
+  const fast = new Server(server);
+  const game = createGameServer(fast, {
+    getUser: async () => null,
+    loadPlayer: async () => null,
+    getBalance: async () => 0,
+    recordOnlineHand: async () => {},
+    onError: (err, where) => errors.push(`${where}: ${err.stack}`),
+    turnMs: 40,
+    botDelay: () => 5,
+    ...extra,
+  });
+  await new Promise((resolve) => server.listen(0, resolve));
+  return { game, url: `http://localhost:${server.address().port}`, close: () => { fast.close(); server.close(); } };
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test('the next hand deals after the wait and a bot covers whoever did not press', async () => {
+  const { url, close } = await fastServer({ nextHandMs: 400 });
+  const a = await client(null, url);
+  const b = await client(null, url);
+  const starts = { a: [], b: [] };
+  const overs = [];
+  a.on('game-start', (d) => starts.a.push(d));
+  b.on('game-start', (d) => starts.b.push(d));
+  a.on('hand-over', (d) => overs.push(d));
+
+  a.emit('create-room', { nickname: 'A', maxPlayers: 2 });
+  const { roomCode } = await nextEvent(a, 'room-created');
+  b.emit('join-room', { roomCode, nickname: 'B' });
+
+  const handEnd = Date.now() + 30000;
+  while (overs.length === 0) {
+    assert.ok(Date.now() < handEnd, 'first hand never ended');
+    await sleep(50);
+  }
+  assert.equal(overs[0].nextHandMs, 400);
+
+  await sleep(900);
+  assert.equal(starts.a.length, 1, 'nobody pressed, so no new hand');
+
+  b.emit('resume');
+  await sleep(100);
+  a.emit('new-hand');
+  await nextEvent(a, 'waiting-for-opponent');
+  const dealEnd = Date.now() + 3000;
+  while (starts.b.length < 2) {
+    assert.ok(Date.now() < dealEnd, 'second hand never dealt');
+    await sleep(50);
+  }
+  const second = starts.b[1];
+  assert.ok(second.idle.includes(second.you), 'the player who did not press is covered by a bot');
+  assert.deepEqual(errors, []);
+  a.disconnect();
+  b.disconnect();
+  close();
+});

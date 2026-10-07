@@ -80,6 +80,17 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3001;
 await migrate();
 await emotes.load();
+let shuttingDown = false;
+process.on('SIGTERM', () => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log('SIGTERM received, letting running hands finish before exit');
+  game.drain(290000)
+    .then(({ unfinished }) => console.log(`Shutting down with ${unfinished} unfinished hands`))
+    .catch((err) => console.error('Drain failed', err))
+    .finally(() => process.exit(0));
+});
+
 httpServer.on('error', (err) => {
   console.error('Server could not start', err);
   process.exit(1);

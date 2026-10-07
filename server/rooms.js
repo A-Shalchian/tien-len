@@ -238,10 +238,26 @@ function requestNewHand(socketId) {
   const seat = seatOf(room, socketId);
   if (!seat || !room.game || !room.game.handOver) return null;
 
+  seat.idle = false;
+  seat.timeouts = 0;
   room.readyForNext.add(seat.id);
-  const waitingOn = activeHumans(room).filter((p) => !room.readyForNext.has(p.id));
+  const waitingOn = activeHumans(room).filter((p) => !p.idle && !room.readyForNext.has(p.id));
   if (waitingOn.length > 0) return { room, waiting: true };
+  return startNextHand(room);
+}
 
+function forceNextHand(room) {
+  if (!rooms.has(room.code) || !room.game || !room.game.handOver || room.readyForNext.size === 0) return null;
+  const idled = [];
+  for (const p of activeHumans(room)) {
+    if (p.idle || room.readyForNext.has(p.id)) continue;
+    p.idle = true;
+    idled.push(p.id);
+  }
+  return { ...startNextHand(room), idled };
+}
+
+function startNextHand(room) {
   room.readyForNext.clear();
   dropAwayPlayers(room);
   const kicked = checkAndRemoveBrokePlayers(room);
@@ -254,6 +270,12 @@ function requestNewHand(socketId) {
 }
 
 const matchQueues = new Map();
+
+function drainMatchmaking() {
+  const socketIds = [...matchQueues.values()].flat().map((p) => p.socketId);
+  matchQueues.clear();
+  return socketIds;
+}
 
 function joinMatchmaking(conn, stake, maxPlayers = 4, balance = 0) {
   const queueKey = `${stake}-${maxPlayers}`;
@@ -387,7 +409,7 @@ function busyReason(userId) {
 export {
   rooms, createRoom, joinRoom, startManually,
   getRoomBySocket, seatOf, getNicknames, getBotFlags, getAway, isAutoPlayed,
-  leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
-  joinMatchmaking, leaveMatchmaking,
+  leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand, forceNextHand,
+  joinMatchmaking, leaveMatchmaking, drainMatchmaking,
   listOpenRooms, busyReason, closeRoom, liveSnapshot, STILL_FINISHING, roomsHostedBy,
 };

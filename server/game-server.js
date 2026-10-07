@@ -2,8 +2,8 @@ import crypto from 'crypto';
 import {
   createRoom, joinRoom, startManually, getRoomBySocket, seatOf,
   getNicknames, getBotFlags, getAway, isAutoPlayed,
-  leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand,
-  joinMatchmaking, leaveMatchmaking,
+  leaveSeat, rejoinSeat, dropAwayPlayers, closeIfAbandoned, requestNewHand, forceNextHand,
+  joinMatchmaking, leaveMatchmaking, drainMatchmaking, rooms,
   listOpenRooms, busyReason, closeRoom, liveSnapshot, STILL_FINISHING, roomsHostedBy, REJOIN_GRACE_MS,
 } from './rooms.js';
 import { playCards, pass, getGameState, mustPlay3S } from './game/engine.js';
@@ -15,6 +15,10 @@ import { clientIp, SLOW_DOWN } from './security.js';
 
 export const MAX_MESSAGE_BYTES = 10000;
 export const TURN_MS = 25000;
+export const NEXT_HAND_MS = 20000;
+export const UPDATING = 'The server is updating. Try again in a minute.';
+const UPDATE_CLOSE = 'The server is updating. Start a new game in a minute.';
+const UPDATE_NOTICE = 'The server is updating. This hand will finish, then the table closes.';
 const IDLE_AFTER_TIMEOUTS = 2;
 export const DEFAULT_LIMITS = {
   events: 40,
@@ -67,6 +71,11 @@ export function createGameServer(io, deps) {
   const savingHands = new Set();
   const limits = { ...DEFAULT_LIMITS, ...deps.limits };
   const turnMs = deps.turnMs ?? TURN_MS;
+  const nextHandMs = deps.nextHandMs ?? NEXT_HAND_MS;
+  const botDelay = deps.botDelay || ((seat) => (seat?.away || seat?.idle ? 700 : 800 + Math.random() * 1200));
+  const drainCloseMs = deps.drainCloseMs ?? 10000;
+  const savesInFlight = new Set();
+  let draining = false;
   const isEmoteEnabled = deps.isEmoteEnabled || ((id) => CORE_EMOTE_IDS.includes(id));
   const connectionsByIp = new Map();
 
@@ -112,6 +121,7 @@ export function createGameServer(io, deps) {
     if (!room) return false;
     clearTimeout(room.botTimer);
     clearTimeout(room.turnTimer);
+    clearTimeout(room.nextHandTimer);
     for (const p of room.players) {
       if (!p.socketId) continue;
       io.sockets.sockets.get(p.socketId)?.leave(room.code);
@@ -140,12 +150,26 @@ export function createGameServer(io, deps) {
     const hand = { id: crypto.randomBytes(6).toString('hex'), stake: room.stake, data: renamePlayers(data, seatNumber), players };
     const userIds = players.map((p) => p.userId).filter(Boolean);
     for (const id of userIds) savingHands.add(id);
-    Promise.resolve()
-      .then(() => recordOnlineHand(hand))
+    const saving = saveWithRetry(hand)
       .catch((err) => console.error('Failed to save online hand', err))
       .finally(() => {
         for (const id of userIds) savingHands.delete(id);
+        savesInFlight.delete(saving);
       });
+    savesInFlight.add(saving);
+  }
+
+  async function saveWithRetry(hand) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await recordOnlineHand(hand);
+        return;
+      } catch (err) {
+        if (err?.code === '23505') return;
+        if (attempt >= 3) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 1000 * 3 ** attempt));
+      }
+    }
   }
 
   function broadcastRoomList() {
@@ -186,12 +210,46 @@ export function createGameServer(io, deps) {
       nicknames: getNicknames(room),
       stake: room.stake,
     };
-    emitToHumans(room, 'hand-over', room.lastResult);
+    emitToHumans(room, 'hand-over', { ...room.lastResult, nextHandMs: draining ? null : nextHandMs });
     const dropped = dropAwayPlayers(room);
     if (dropped.length > 0) {
       emitToHumans(room, 'player-left', { nicknames: getNicknames(room), playerCount: room.players.length });
     }
-    if (closeIfAbandoned(room)) broadcastRoomList();
+    if (closeIfAbandoned(room)) {
+      broadcastRoomList();
+      return;
+    }
+    clearTimeout(room.nextHandTimer);
+    if (draining) {
+      room.nextHandTimer = later(`close room ${room.code} for update`, () => closeRoomFor(room.code, UPDATE_CLOSE), drainCloseMs);
+      return;
+    }
+    scheduleNextHand(room);
+  }
+
+  function scheduleNextHand(room) {
+    clearTimeout(room.nextHandTimer);
+    room.nextHandDue = Date.now() + nextHandMs;
+    room.nextHandTimer = later(`next hand in room ${room.code}`, () => {
+      room.nextHandDue = null;
+      const result = forceNextHand(room);
+      if (result) afterNextHand(result);
+    }, nextHandMs);
+  }
+
+  function afterNextHand(result) {
+    const { room } = result;
+    clearTimeout(room.nextHandTimer);
+    room.nextHandDue = null;
+    for (const k of result.kicked) {
+      if (!k.isBot && k.socketId) io.to(k.socketId).emit('kicked-low-balance', { balance: k.balance, needed: minBalance(room.stake) });
+      emitToHumans(room, 'player-kicked', { nickname: k.nickname, reason: 'low-balance' });
+    }
+    if (result.type === 'game-over') {
+      emitToHumans(room, 'game-over-insufficient', { reason: 'Not enough players to continue' });
+      return;
+    }
+    broadcastGameStart(room, result.deal);
   }
 
   function startPayload(room, p) {
@@ -270,8 +328,7 @@ export function createGameServer(io, deps) {
       clearTimeout(room.turnTimer);
       room.turnDeadline = null;
       clearTimeout(room.botTimer);
-      const delay = seat?.away || seat?.idle ? 700 : 800 + Math.random() * 1200;
-      room.botTimer = later(`bot turn in room ${room.code}`, () => executeBotTurn(room, turn), delay);
+      room.botTimer = later(`bot turn in room ${room.code}`, () => executeBotTurn(room, turn), botDelay(seat));
       return;
     }
     clearTimeout(room.botTimer);
@@ -409,6 +466,10 @@ export function createGameServer(io, deps) {
     });
 
     on(socket, 'create-room', ({ nickname, stake, maxPlayers, fillWithBots, isPublic }) => {
+      if (draining) {
+        socket.emit('join-error', { error: UPDATING });
+        return;
+      }
       if (getRoomBySocket(socket.id)) handleLeave(socket, true);
       const conn = connOf(socket, text(nickname, 40));
       releaseHostedRooms(conn);
@@ -429,6 +490,10 @@ export function createGameServer(io, deps) {
     });
 
     on(socket, 'join-room', ({ roomCode, nickname }) => {
+      if (draining) {
+        socket.emit('join-error', { error: UPDATING });
+        return;
+      }
       const code = text(roomCode, 8).toUpperCase();
       const current = getRoomBySocket(socket.id);
       if (current && current.code !== code) handleLeave(socket, true);
@@ -505,25 +570,18 @@ export function createGameServer(io, deps) {
     });
 
     on(socket, 'new-hand', () => {
+      if (draining) return;
       const result = requestNewHand(socket.id);
       if (!result) return;
       if (result.waiting) {
+        if (!result.room.nextHandDue) {
+          scheduleNextHand(result.room);
+          emitToHumans(result.room, 'next-hand-timer', { nextHandMs });
+        }
         socket.emit('waiting-for-opponent');
         return;
       }
-
-      const { room } = result;
-      for (const k of result.kicked) {
-        if (!k.isBot && k.socketId) io.to(k.socketId).emit('kicked-low-balance', { balance: k.balance, needed: minBalance(room.stake) });
-        emitToHumans(room, 'player-kicked', { nickname: k.nickname, reason: 'low-balance' });
-      }
-
-      if (result.type === 'game-over') {
-        emitToHumans(room, 'game-over-insufficient', { reason: 'Not enough players to continue' });
-        return;
-      }
-
-      broadcastGameStart(room, result.deal);
+      afterNextHand(result);
     });
 
     on(socket, 'rejoin', () => {
@@ -548,6 +606,10 @@ export function createGameServer(io, deps) {
     });
 
     on(socket, 'find-match', async ({ bet, maxPlayers }) => {
+      if (draining) {
+        socket.emit('match-error', { error: UPDATING });
+        return;
+      }
       if (!socket.data.player) {
         socket.emit('match-error', { error: 'Sign in with Google to play Quick Match.', needsLogin: true });
         return;
@@ -621,7 +683,27 @@ export function createGameServer(io, deps) {
     on(socket, 'disconnect', () => handleLeave(socket, false));
   });
 
+  function liveHands() {
+    return [...rooms.values()].filter((room) => room.game && !room.game.handOver);
+  }
+
+  async function drain(maxMs = 290000) {
+    draining = true;
+    for (const socketId of drainMatchmaking()) io.to(socketId).emit('match-error', { error: UPDATING });
+    for (const room of [...rooms.values()]) {
+      if (room.game && !room.game.handOver) emitToHumans(room, 'server-update', { reason: UPDATE_NOTICE });
+      else closeRoomFor(room.code, UPDATE_CLOSE);
+    }
+    const deadline = Date.now() + maxMs;
+    while (Date.now() < deadline && (liveHands().length > 0 || savesInFlight.size > 0)) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    await Promise.allSettled([...savesInFlight]);
+    return { unfinished: liveHands().length };
+  }
+
   return {
+    drain,
     closeRoomFor,
     live: () => ({ ...liveSnapshot(), connections: io.engine.clientsCount }),
   };

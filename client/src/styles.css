@@ -2017,3 +2017,11 @@ body {
   max-height: 112px;
   overflow-y: auto;
 }
+
+.next-hand-clock {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

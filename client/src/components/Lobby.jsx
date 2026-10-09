@@ -240,7 +240,7 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
                 aria-label={t('Your name')}
               />
               <p className="name-note">
-                {nameNoteStart}<a href="/profile">{t('profile')}</a>{nameNoteEnd}
+                {nameNoteStart}<a href="/profile?tab=settings">{t('profile')}</a>{nameNoteEnd}
               </p>
             </>
           ) : (

@@ -53,9 +53,17 @@ create table if not exists chip_ledger (
   created_at timestamptz not null default now()
 );
 
-alter table chip_ledger drop constraint if exists chip_ledger_reason_check;
-alter table chip_ledger add constraint chip_ledger_reason_check
-  check (reason in ('signup', 'daily', 'admin', 'online'));
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'chip_ledger'::regclass and conname = 'chip_ledger_reason_check'
+  ) then
+    alter table chip_ledger add constraint chip_ledger_reason_check
+      check (reason in ('signup', 'daily', 'admin', 'online'));
+  end if;
+end;
+$$;
 
 create index if not exists chip_ledger_user_idx on chip_ledger (user_id);
 create unique index if not exists chip_ledger_daily_once on chip_ledger (user_id, day) where reason = 'daily';

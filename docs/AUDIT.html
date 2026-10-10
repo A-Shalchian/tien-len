@@ -439,10 +439,10 @@ footer { border-top: 1px solid var(--line); margin-top: 56px; padding-top: 20px;
       <h3>Chip farming in Quick Match</h3>
       <p>How it works today:</p>
       <ul>
-        <li>Every Google account gets 1,000 chips at sign-up and 100 more each day.</li>
+        <li>Every Google account gets 1,000 chips at sign-up. After that, a player can claim 100 a day from the account menu, and 1,000 once a week while they have under 100.</li>
         <li>Only Quick Match moves chips. Private rooms don't.</li>
         <li>Quick Match seats whoever queues first at the same stake and table size. At a quiet hour, a 2-player queue pairs you with your own second account.</li>
-        <li>The second account loses on purpose. Ten spare accounts can move over 10,000 chips a day to one player, who then tops the leaderboard.</li>
+        <li>The second account loses on purpose. Ten spare accounts can move 10,000 chips to one player on the first day, then up to 17,000 a week from daily claims and refills. That player tops the leaderboard.</li>
         <li>The terms say chips have no money value. The harm is a fake leaderboard.</li>
       </ul>
       <div class="wrap">
@@ -737,7 +737,7 @@ footer { border-top: 1px solid var(--line); margin-top: 56px; padding-top: 20px;
           </tbody>
         </table>
       </div>
-      <div class="pick"><p>The next test worth writing: <code>chips.js</code> against PGlite, covering balances, the daily top-up and saving a Quick Match hand. Chip math is the riskiest code with no test.</p></div>
+      <div class="pick"><p>The next test worth writing: <code>chips.js</code> against PGlite, covering balances, the daily claim, the weekly refill and saving a Quick Match hand. Chip math is the riskiest code with no test.</p></div>
 
       <h3>Checks run outside <code>npm test</code> in this audit</h3>
       <ul>
@@ -758,7 +758,7 @@ footer { border-top: 1px solid var(--line); margin-top: 56px; padding-top: 20px;
           </tbody>
         </table>
       </div>
-      <p>One side effect of <code>754b6ec</code>: adding a new chip reason later, such as <code>refund</code>, needs a one-off <code>alter table chip_ledger drop constraint chip_ledger_reason_check</code> before the new list takes effect.</p>
+      <p>One side effect of <code>754b6ec</code>: a new chip reason needs <code>schema.sql</code> to replace the check. The weekly refill does this for <code>refill</code>. <code>schema.sql</code> drops and re-adds the check once, when the current check doesn't list <code>refill</code>. A later reason, such as <code>refund</code>, needs the same change.</p>
     </section>
 
     <section id="rerun">

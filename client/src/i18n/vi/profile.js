@@ -45,6 +45,7 @@ export default {
   What: 'Nội dung',
   'Welcome chips': 'Chip chào mừng',
   'Daily top-up': 'Chip mỗi ngày',
+  'Weekly refill': 'Nạp lại hằng tuần',
   Adjustment: 'Điều chỉnh',
   'Online match': 'Ván trực tuyến',
 

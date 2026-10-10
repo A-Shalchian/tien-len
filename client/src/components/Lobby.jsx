@@ -8,7 +8,9 @@ const STAKE_OPTIONS = [5, 10, 25, 50, 100, 250];
 const STAKES_TO_PLAY = 10;
 
 const CHIP_RULES = [
-  ['Start', '1,000 chips, plus 100 a day while you have less'],
+  ['Start', '1,000 chips when you sign up'],
+  ['Daily', 'Claim 100 chips a day from your account menu'],
+  ['Refill', 'Under 100 chips? Claim 1,000 once a week'],
   ['Scoring', 'Same points as the score tracker: places, chops, 2s left, 3♠ finish, cóng'],
   ['Stake', 'Each point is worth the stake. Every hand adds up to zero'],
   ['Table', 'You need 10× the stake to sit down'],
@@ -91,6 +93,12 @@ export default function Lobby({ socket, roomCode, urlRoomCode, onRoomCreated, on
   useEffect(() => {
     loadMe();
   }, [loadMe]);
+
+  useEffect(() => {
+    const onChips = (e) => setMe((current) => (current?.user ? { ...current, ...e.detail } : current));
+    window.addEventListener('chips-changed', onChips);
+    return () => window.removeEventListener('chips-changed', onChips);
+  }, []);
 
   const signedIn = !!me?.user;
   const lockedName = signedIn ? (me.profile?.name || me.user.name || '').slice(0, 20) : null;

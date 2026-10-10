@@ -428,6 +428,7 @@ body {
 }
 
 .nav-user-btn {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -521,6 +522,45 @@ body {
   color: var(--nav-accent);
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
+}
+
+.nav-dot {
+  position: absolute;
+  top: 4px;
+  left: 30px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--nav-bg);
+  border-radius: 50%;
+  background: var(--nav-accent);
+}
+
+.nav-claims {
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--nav-panel-line);
+}
+
+.nav-menu-item.nav-claim {
+  color: var(--nav-accent);
+  font-weight: 600;
+}
+
+.nav-claim:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.nav-claim-wait,
+.nav-claim-error {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--nav-text);
+  font: 500 0.9rem system-ui, sans-serif;
+}
+
+.nav-claim-error {
+  color: #f28b82;
 }
 
 .nav-menu-item {

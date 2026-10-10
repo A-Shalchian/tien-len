@@ -10,6 +10,7 @@ import './scores.css';
 const REASONS = {
   signup: 'Welcome chips',
   daily: 'Daily top-up',
+  refill: 'Weekly refill',
   admin: 'Adjustment',
   online: 'Online match',
 };
@@ -71,6 +72,11 @@ function ProfileView({ id, me, onChanged, preview }) {
     api(`/users/${id}`).then(setData).catch((e) => setError(e.message));
   }, [id]);
   useEffect(load, [load]);
+
+  useEffect(() => {
+    window.addEventListener('chips-changed', load);
+    return () => window.removeEventListener('chips-changed', load);
+  }, [load]);
 
   if (error) return <p className="st-error">{t(error)}</p>;
   if (!data) return <p className="st-muted">{t('Loading profile...')}</p>;

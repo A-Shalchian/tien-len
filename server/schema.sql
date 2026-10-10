@@ -58,15 +58,18 @@ begin
   if not exists (
     select 1 from pg_constraint
     where conrelid = 'chip_ledger'::regclass and conname = 'chip_ledger_reason_check'
+      and pg_get_constraintdef(oid) like '%''refill''%'
   ) then
+    alter table chip_ledger drop constraint if exists chip_ledger_reason_check;
     alter table chip_ledger add constraint chip_ledger_reason_check
-      check (reason in ('signup', 'daily', 'admin', 'online'));
+      check (reason in ('signup', 'daily', 'admin', 'online', 'refill'));
   end if;
 end;
 $$;
 
 create index if not exists chip_ledger_user_idx on chip_ledger (user_id);
 create unique index if not exists chip_ledger_daily_once on chip_ledger (user_id, day) where reason = 'daily';
+create index if not exists chip_ledger_claims_idx on chip_ledger (user_id, created_at) where reason in ('daily', 'refill');
 
 create table if not exists profiles (
   user_id text primary key references "user"(id) on delete cascade,

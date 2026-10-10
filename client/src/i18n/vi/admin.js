@@ -24,6 +24,7 @@ export default {
   'Last 7 days': '7 ngày qua',
   'All time': 'Từ trước tới nay',
   'Daily top-ups': 'Nạp hằng ngày',
+  'Weekly refills': 'Nạp lại hằng tuần',
   'Online matches': 'Trận online',
   'Admin adjustments': 'Quản trị điều chỉnh',
   'Top balances': 'Nhiều chip nhất',

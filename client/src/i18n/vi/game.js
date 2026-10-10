@@ -38,7 +38,11 @@ export default {
   'Start with Bots': 'Chơi luôn với máy',
 
   Start: 'Bắt đầu',
-  '1,000 chips, plus 100 a day while you have less': '1.000 chip, được thêm 100 mỗi ngày nếu còn dưới 1.000',
+  '1,000 chips when you sign up': 'Nhận 1.000 chip khi đăng ký',
+  Daily: 'Mỗi ngày',
+  'Claim 100 chips a day from your account menu': 'Nhận 100 chip mỗi ngày trong menu tài khoản',
+  Refill: 'Nạp lại',
+  'Under 100 chips? Claim 1,000 once a week': 'Còn dưới 100 chip? Mỗi tuần nhận lại 1.000 chip một lần',
   Scoring: 'Tính điểm',
   'Same points as the score tracker: places, chops, 2s left, 3♠ finish, cóng': 'Giống trang Ghi điểm: hạng, chặt heo, thối heo, về bằng 3♠, cóng',
   Stake: 'Mức cược',

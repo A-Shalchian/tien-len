@@ -1,7 +1,7 @@
 import express from 'express';
 import { pool, transaction } from './db.js';
 import { getUser, isAdmin, cleanImage, cleanName, publicName } from './auth.js';
-import { getBalance, applyDailyTopUp } from './chips.js';
+import { getBalance, chipClaims, claimDaily, claimRefill } from './chips.js';
 import { gameChips } from './game/payout.js';
 import {
   gameDeltas, describeChop, describeStuckLast, ordinal, renamePlayers,
@@ -208,15 +208,34 @@ router.get('/me', handle(async (req, res) => {
   if (!user) return res.json({ user: null });
   const profile = await loadProfile(user.id);
   const needsConsent = !profile.termsAcceptedAt;
-  if (!needsConsent) await applyDailyTopUp(user.id);
+  const [balance, claims] = await Promise.all([
+    getBalance(user.id),
+    needsConsent ? null : chipClaims(user.id),
+  ]);
   res.json({
     user: { id: profile.id, name: profile.name, email: profile.email, image: profile.image },
     profile,
     needsConsent,
-    balance: await getBalance(user.id),
+    balance,
+    claims,
     isAdmin: isAdmin(user),
   });
 }));
+
+const claimRoute = (grant, notReady) => handle(async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: 'Sign in with Google to continue.' });
+  if (!(await hasAcceptedTerms(user.id))) {
+    return res.status(403).json({ error: 'Accept the terms to get chips.' });
+  }
+  const granted = await grant(user.id);
+  const [balance, claims] = await Promise.all([getBalance(user.id), chipClaims(user.id)]);
+  if (granted) leaderboard.rows = null;
+  res.status(granted ? 200 : 409).json({ balance, claims, ...(granted ? {} : { error: notReady }) });
+});
+
+router.post('/me/claim-daily', claimRoute(claimDaily, 'Your daily chips are not ready yet.'));
+router.post('/me/refill', claimRoute(claimRefill, 'You can refill once a week, when you have under 100 chips.'));
 
 router.post('/me/accept', handle(async (req, res) => {
   const user = await getUser(req);

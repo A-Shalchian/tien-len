@@ -10,6 +10,7 @@ const REFRESH_MS = 10000;
 const REASONS = {
   signup: 'Welcome chips',
   daily: 'Daily top-ups',
+  refill: 'Weekly refills',
   online: 'Online matches',
   admin: 'Admin adjustments',
 };

@@ -277,18 +277,33 @@ function drainMatchmaking() {
   return socketIds;
 }
 
+const networkOf = (entry) => entry.ip || entry.socketId;
+
+function pickTable(queue, size) {
+  const picked = [];
+  const networks = new Set();
+  for (const entry of queue) {
+    if (networks.has(networkOf(entry))) continue;
+    networks.add(networkOf(entry));
+    picked.push(entry);
+    if (picked.length === size) return picked;
+  }
+  return null;
+}
+
 function joinMatchmaking(conn, stake, maxPlayers = 4, balance = 0) {
   const queueKey = `${stake}-${maxPlayers}`;
   if (!matchQueues.has(queueKey)) matchQueues.set(queueKey, []);
   const queue = matchQueues.get(queueKey);
+  const waiting = () => ({ queued: true, position: new Set(queue.map(networkOf)).size, needed: maxPlayers });
 
-  const position = queue.findIndex((p) => p.socketId === conn.socketId);
-  if (position !== -1) return { queued: true, position: position + 1, needed: maxPlayers };
+  if (queue.some((p) => p.socketId === conn.socketId)) return waiting();
 
   queue.push({ ...conn, balance });
-  if (queue.length < maxPlayers) return { queued: true, position: queue.length, needed: maxPlayers };
+  const entries = pickTable(queue, maxPlayers);
+  if (!entries) return waiting();
 
-  const entries = queue.splice(0, maxPlayers);
+  for (const entry of entries) queue.splice(queue.indexOf(entry), 1);
   if (queue.length === 0) matchQueues.delete(queueKey);
   const code = newCode();
   const players = entries.map(humanSeat);

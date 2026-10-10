@@ -191,6 +191,7 @@ export function createGameServer(io, deps) {
     return {
       socketId: socket.id,
       key: socket.data.key,
+      ip: clientIp(socket.handshake.headers, socket.handshake.address),
       userId: player?.userId || null,
       nickname: player?.name || nickname,
     };

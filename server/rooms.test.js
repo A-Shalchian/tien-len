@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   rooms, createRoom, startManually, leaveSeat, closeIfAbandoned, dropAwayPlayers,
-  joinMatchmaking, busyReason, STILL_FINISHING, roomsHostedBy, MAX_ROOMS, REJOIN_GRACE_MS,
+  joinMatchmaking, leaveMatchmaking, busyReason, STILL_FINISHING, roomsHostedBy, MAX_ROOMS, REJOIN_GRACE_MS,
 } from './rooms.js';
 import { playCards, pass, mustPlay3S, dealHand } from './game/engine.js';
 import { findBotPlay } from './game/bot.js';
@@ -48,6 +48,19 @@ test('leaving a Quick Match keeps you busy until that hand is over', () => {
   playOut(room.game);
   dropAwayPlayers(room);
   assert.equal(busyReason('user-a'), null);
+});
+
+test('quick match never seats two players from the same network', () => {
+  const first = joinMatchmaking({ socketId: 'ip-1', userId: 'ip-user-a', nickname: 'A', ip: '1.1.1.1' }, 25, 2, 1000);
+  const second = joinMatchmaking({ socketId: 'ip-2', userId: 'ip-user-b', nickname: 'B', ip: '1.1.1.1' }, 25, 2, 1000);
+  assert.equal(first.queued, true);
+  assert.equal(second.queued, true);
+  assert.equal(second.position, 1);
+
+  const { room } = joinMatchmaking({ socketId: 'ip-3', userId: 'ip-user-c', nickname: 'C', ip: '2.2.2.2' }, 25, 2, 1000);
+  assert.deepEqual(room.players.map((p) => p.socketId), ['ip-1', 'ip-3']);
+  assert.equal(leaveMatchmaking('ip-2'), true);
+  rooms.delete(room.code);
 });
 
 test('rooms are tracked by the account or browser that created them', () => {
